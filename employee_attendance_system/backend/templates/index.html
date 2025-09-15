@@ -1,0 +1,523 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống điểm danh nhân viên</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .nav-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tab-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="text-center my-4">Hệ thống điểm danh nhân viên</h1>
+        
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="management-tab" data-bs-toggle="tab" data-bs-target="#management" type="button" role="tab">
+                    Quản lý nhân viên
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="detection-tab" data-bs-toggle="tab" data-bs-target="#detection" type="button" role="tab">
+                    Phát hiện realtime
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="capture-tab" data-bs-toggle="tab" data-bs-target="#capture" type="button" role="tab">
+                    Chụp ảnh từ laptop
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabContent">
+            <!-- Tab 1: Quản lý nhân viên -->
+            <div class="tab-pane fade show active" id="management" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h3>Thêm nhân viên mới</h3>
+                        <form id="employeeForm">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Họ tên</label>
+                                <input type="text" class="form-control" id="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="employee_code" class="form-label">Mã nhân viên</label>
+                                <input type="text" class="form-control" id="employee_code" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="department" class="form-label">Phòng ban</label>
+                                <input type="text" class="form-control" id="department">
+                            </div>
+                            <div class="mb-3">
+                                <label for="position" class="form-label">Chức vụ</label>
+                                <input type="text" class="form-control" id="position">
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email">
+                            </div>
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Số điện thoại</label>
+                                <input type="tel" class="form-control" id="phone">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Thêm nhân viên</button>
+                        </form>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <h3>Danh sách nhân viên</h3>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="employeeTable">
+                                <thead>
+                                    <tr>
+                                        <th>Mã NV</th>
+                                        <th>Họ tên</th>
+                                        <th>Phòng ban</th>
+                                        <th>Số ảnh</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal quản lý ảnh -->
+                <div class="modal fade" id="imageModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Quản lý ảnh nhân viên</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="imageUpload" class="form-label">Tải ảnh lên</label>
+                                    <input type="file" class="form-control" id="imageUpload" accept="image/*" multiple>
+                                    <div class="form-text">Tối đa 10 ảnh cho mỗi nhân viên</div>
+                                </div>
+                                <div id="imageGallery" class="row"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Phát hiện realtime -->
+            <div class="tab-pane fade" id="detection" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h3>Camera realtime</h3>
+                        <div class="mb-3">
+                            <button id="toggleCamera" class="btn btn-success">Bắt đầu nhận camera</button>
+                            <button id="toggleDetection" class="btn btn-primary">Bắt đầu detect</button>
+                        </div>
+                        <div class="border" style="height: 480px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="detectionCanvas" width="640" height="480" style="max-width: 100%;"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h3>Trạng thái</h3>
+                        <div class="card">
+                            <div class="card-body">
+                                <p><strong>Camera:</strong> <span id="cameraStatus">Tắt</span></p>
+                                <p><strong>Detection:</strong> <span id="detectionStatus">Tắt</span></p>
+                                <p><strong>Kết nối mobile:</strong> <span id="connectionStatus">Chưa kết nối</span></p>
+                            </div>
+                        </div>
+                        
+                        <h4 class="mt-4">Kết quả phát hiện</h4>
+                        <div id="detectionResults" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Chụp ảnh từ laptop -->
+            <div class="tab-pane fade" id="capture" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Chọn nhân viên</h3>
+                        <select id="captureEmployeeSelect" class="form-select mb-3">
+                            <option value="">-- Chọn nhân viên --</option>
+                        </select>
+                        
+                        <div id="captureSection" style="display: none;">
+                            <h4>Camera laptop</h4>
+                            <video id="laptopVideo" width="480" height="360" autoplay style="border: 1px solid #ccc;"></video>
+                            <br>
+                            <button id="captureBtn" class="btn btn-primary mt-2">Chụp ảnh</button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div id="capturePreview" style="display: none;">
+                            <h4>Ảnh đã chụp</h4>
+                            <canvas id="captureCanvas" width="480" height="360" style="border: 1px solid #ccc;"></canvas>
+                            <br>
+                            <button id="saveCaptureBtn" class="btn btn-success mt-2">Lưu ảnh</button>
+                            <button id="retakeBtn" class="btn btn-secondary mt-2">Chụp lại</button>
+                        </div>
+                        
+                        <div id="captureStatus" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // Global variables
+        let currentEmployeeId = null;
+        let laptopStream = null;
+        let cameraActive = false;
+        let detectionActive = false;
+
+        // Socket events
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            document.getElementById('connectionStatus').textContent = 'Đã kết nối';
+        });
+
+        socket.on('frame_received', function(data) {
+            // Update UI when frame is received from mobile
+        });
+
+        socket.on('detection_update', function(data) {
+            updateDetectionResults(data.detections);
+        });
+
+        socket.on('camera_status', function(data) {
+            cameraActive = data.active;
+            updateCameraStatus();
+        });
+
+        socket.on('detection_status', function(data) {
+            detectionActive = data.active;
+            updateDetectionStatus();
+        });
+
+        // Employee management functions
+        function loadEmployees() {
+            fetch('/api/employees')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        populateEmployeeTable(data.data);
+                        populateEmployeeSelect(data.data);
+                    }
+                });
+        }
+
+        function populateEmployeeTable(employees) {
+            const tbody = document.querySelector('#employeeTable tbody');
+            tbody.innerHTML = '';
+            
+            employees.forEach(emp => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${emp.employee_code}</td>
+                    <td>${emp.name}</td>
+                    <td>${emp.department || ''}</td>
+                    <td>${emp.image_count}/10</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="manageImages(${emp.id}, '${emp.name}')">Quản lý ảnh</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${emp.id})">Xóa</button>
+                    </td>
+                `;
+            });
+        }
+
+        function populateEmployeeSelect(employees) {
+            const select = document.getElementById('captureEmployeeSelect');
+            select.innerHTML = '<option value="">-- Chọn nhân viên --</option>';
+            
+            employees.forEach(emp => {
+                if (emp.image_count < 10) {
+                    const option = document.createElement('option');
+                    option.value = emp.id;
+                    option.textContent = `${emp.name} (${emp.image_count}/10 ảnh)`;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        // Form submission
+        document.getElementById('employeeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('name').value,
+                employee_code: document.getElementById('employee_code').value,
+                department: document.getElementById('department').value,
+                position: document.getElementById('position').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value
+            };
+            
+            fetch('/api/employees', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Thêm nhân viên thành công!');
+                    this.reset();
+                    loadEmployees();
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            });
+        });
+
+        // Image management
+        function manageImages(employeeId, employeeName) {
+            currentEmployeeId = employeeId;
+            document.querySelector('#imageModal .modal-title').textContent = `Quản lý ảnh - ${employeeName}`;
+            
+            loadEmployeeImages(employeeId);
+            
+            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+            modal.show();
+        }
+
+        function loadEmployeeImages(employeeId) {
+            fetch(`/api/employees/${employeeId}/vectors`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayImages(data.data);
+                    }
+                });
+        }
+
+        function displayImages(images) {
+            const gallery = document.getElementById('imageGallery');
+            gallery.innerHTML = '';
+            
+            images.forEach(img => {
+                const col = document.createElement('div');
+                col.className = 'col-md-3 mb-3';
+                col.innerHTML = `
+                    <div class="card">
+                        <img src="/${img.image_path}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                        <div class="card-body p-2">
+                            <button class="btn btn-sm btn-danger w-100" onclick="deleteImage(${img.id})">Xóa</button>
+                        </div>
+                    </div>
+                `;
+                gallery.appendChild(col);
+            });
+        }
+
+        // Image upload
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const files = e.target.files;
+            for (let file of files) {
+                uploadImage(file);
+            }
+        });
+
+        function uploadImage(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            fetch(`/api/employees/${currentEmployeeId}/upload`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadEmployeeImages(currentEmployeeId);
+                    loadEmployees(); // Refresh employee list
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            });
+        }
+
+        function deleteImage(vectorId) {
+            if (confirm('Bạn có chắc muốn xóa ảnh này?')) {
+                fetch(`/api/vectors/${vectorId}`, {method: 'DELETE'})
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadEmployeeImages(currentEmployeeId);
+                            loadEmployees();
+                        }
+                    });
+            }
+        }
+
+        function deleteEmployee(employeeId) {
+            if (confirm('Bạn có chắc muốn xóa nhân viên này?')) {
+                fetch(`/api/employees/${employeeId}`, {method: 'DELETE'})
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadEmployees();
+                        }
+                    });
+            }
+        }
+
+        // Detection tab functions
+        document.getElementById('toggleCamera').addEventListener('click', function() {
+            cameraActive = !cameraActive;
+            socket.emit('toggle_camera', {active: cameraActive});
+            updateCameraStatus();
+        });
+
+        document.getElementById('toggleDetection').addEventListener('click', function() {
+            detectionActive = !detectionActive;
+            socket.emit('toggle_detection', {active: detectionActive});
+            updateDetectionStatus();
+        });
+
+        function updateCameraStatus() {
+            const btn = document.getElementById('toggleCamera');
+            const status = document.getElementById('cameraStatus');
+            
+            if (cameraActive) {
+                btn.textContent = 'Tạm dừng nhận camera';
+                btn.className = 'btn btn-warning';
+                status.textContent = 'Đang hoạt động';
+            } else {
+                btn.textContent = 'Bắt đầu nhận camera';
+                btn.className = 'btn btn-success';
+                status.textContent = 'Tắt';
+            }
+        }
+
+        function updateDetectionStatus() {
+            const btn = document.getElementById('toggleDetection');
+            const status = document.getElementById('detectionStatus');
+            
+            if (detectionActive) {
+                btn.textContent = 'Tạm dừng detect';
+                btn.className = 'btn btn-warning';
+                status.textContent = 'Đang hoạt động';
+            } else {
+                btn.textContent = 'Bắt đầu detect';
+                btn.className = 'btn btn-primary';
+                status.textContent = 'Tắt';
+            }
+        }
+
+        function updateDetectionResults(detections) {
+            const resultsDiv = document.getElementById('detectionResults');
+            resultsDiv.innerHTML = '';
+            
+            detections.forEach((detection, index) => {
+                const card = document.createElement('div');
+                card.className = 'card mb-2';
+                card.innerHTML = `
+                    <div class="card-body">
+                        <h6>Phát hiện ${index + 1}</h6>
+                        ${detection.employee ? `
+                            <p><strong>${detection.employee.name}</strong></p>
+                            <p>Mã NV: ${detection.employee.employee_code}</p>
+                            <p>Độ tin cậy: ${(detection.confidence * 100).toFixed(1)}%</p>
+                        ` : `
+                            <p>Không nhận diện được</p>
+                        `}
+                    </div>
+                `;
+                resultsDiv.appendChild(card);
+            });
+        }
+
+        // Capture tab functions
+        document.getElementById('captureEmployeeSelect').addEventListener('change', function() {
+            const employeeId = this.value;
+            if (employeeId) {
+                currentEmployeeId = employeeId;
+                startLaptopCamera();
+                document.getElementById('captureSection').style.display = 'block';
+            } else {
+                stopLaptopCamera();
+                document.getElementById('captureSection').style.display = 'none';
+            }
+        });
+
+        function startLaptopCamera() {
+            navigator.mediaDevices.getUserMedia({video: true})
+                .then(stream => {
+                    laptopStream = stream;
+                    document.getElementById('laptopVideo').srcObject = stream;
+                })
+                .catch(err => {
+                    alert('Không thể truy cập camera: ' + err.message);
+                });
+        }
+
+        function stopLaptopCamera() {
+            if (laptopStream) {
+                laptopStream.getTracks().forEach(track => track.stop());
+                laptopStream = null;
+            }
+        }
+
+        document.getElementById('captureBtn').addEventListener('click', function() {
+            const video = document.getElementById('laptopVideo');
+            const canvas = document.getElementById('captureCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            document.getElementById('capturePreview').style.display = 'block';
+        });
+
+        document.getElementById('saveCaptureBtn').addEventListener('click', function() {
+            const canvas = document.getElementById('captureCanvas');
+            const imageData = canvas.toDataURL('image/jpeg');
+            
+            socket.emit('capture_from_laptop', {
+                employee_id: currentEmployeeId,
+                image: imageData
+            });
+        });
+
+        socket.on('capture_result', function(data) {
+            const status = document.getElementById('captureStatus');
+            if (data.success) {
+                status.innerHTML = `<div class="alert alert-success">Lưu ảnh thành công! Số ảnh hiện tại: ${data.image_count}/10</div>`;
+                loadEmployees(); // Refresh employee list
+                
+                // Hide preview
+                document.getElementById('capturePreview').style.display = 'none';
+            } else {
+                status.innerHTML = `<div class="alert alert-danger">Lỗi: ${data.error}</div>`;
+            }
+        });
+
+        document.getElementById('retakeBtn').addEventListener('click', function() {
+            document.getElementById('capturePreview').style.display = 'none';
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadEmployees();
+        });
+    </script>
+</body>
+</html>

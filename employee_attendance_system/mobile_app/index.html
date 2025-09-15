@@ -1,0 +1,734 @@
+<!-- static/mobile_app/index.html -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Điểm danh - Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f0f0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        #videoElement {
+            width: 100%;
+            height: 100vh;
+            object-fit: cover;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .status-bar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            pointer-events: auto;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+        
+        .status-dot.connected {
+            background: #44ff44;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .detection-results {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            max-height: 40vh;
+            overflow-y: auto;
+            pointer-events: auto;
+        }
+        
+        .detection-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .employee-info {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        
+        .employee-details {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+            transition: width 0.3s ease;
+        }
+        
+        .bounding-box {
+            position: absolute;
+            border: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            pointer-events: none;
+        }
+        
+        .box-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: rgba(0, 255, 0, 0.8);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 20px;
+            text-align: center;
+        }
+        
+        @media (max-width: 480px) {
+            .status-bar {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 10px;
+            }
+            
+            .detection-results {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <video id="videoElement" autoplay muted playsinline></video>
+        
+        <div class="overlay">
+            <div class="status-bar">
+                <div class="connection-status">
+                    <div class="status-dot" id="connectionDot"></div>
+                    <span id="connectionText">Đang kết nối...</span>
+                </div>
+                
+                <div class="controls">
+                    <button id="toggleCamera" class="btn btn-primary">Bật camera</button>
+                    <button id="switchCamera" class="btn btn-secondary">Đổi camera</button>
+                    <button id="settingsBtn" class="btn btn-secondary">Cài đặt</button>
+                </div>
+            </div>
+            
+            <div id="boundingBoxes"></div>
+        </div>
+        
+        <div class="detection-results" id="detectionResults"></div>
+        
+        <div id="loadingScreen" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Đang kết nối với server...</p>
+        </div>
+    </div>
+
+    <!-- Settings Modal (Simple overlay) -->
+    <div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; max-width: 90%; width: 300px;">
+            <h3>Cài đặt</h3>
+            <div style="margin: 15px 0;">
+                <label>Server URL:</label>
+                <input type="text" id="serverUrl" value="localhost:5000" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <div style="margin: 15px 0;">
+                <label>Độ phân giải:</label>
+                <select id="resolution" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="640x480">640x480</option>
+                    <option value="1280x720">1280x720 (HD)</option>
+                    <option value="1920x1080">1920x1080 (Full HD)</option>
+                </select>
+            </div>
+            <div style="margin: 15px 0;">
+                <label>FPS gửi:</label>
+                <select id="fps" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="5">5 FPS</option>
+                    <option value="10" selected>10 FPS</option>
+                    <option value="15">15 FPS</option>
+                    <option value="30">30 FPS</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="saveSettings()" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px;">Lưu</button>
+                <button onclick="closeSettings()" style="flex: 1; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 5px;">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        class MobileAttendanceApp {
+            constructor() {
+                this.socket = null;
+                this.stream = null;
+                this.canvas = null;
+                this.ctx = null;
+                this.isStreaming = false;
+                this.currentCamera = 'user'; // 'user' hoặc 'environment'
+                this.serverUrl = localStorage.getItem('serverUrl') || window.location.host;
+                this.resolution = localStorage.getItem('resolution') || '1280x720';
+                this.fps = parseInt(localStorage.getItem('fps')) || 10;
+                this.frameInterval = null;
+                this.lastDetections = [];
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupCanvas();
+                this.setupEventListeners();
+                this.connectToServer();
+                this.loadSettings();
+            }
+            
+            setupCanvas() {
+                this.canvas = document.createElement('canvas');
+                this.ctx = this.canvas.getContext('2d');
+            }
+            
+            setupEventListeners() {
+                document.getElementById('toggleCamera').addEventListener('click', () => {
+                    this.toggleCamera();
+                });
+                
+                document.getElementById('switchCamera').addEventListener('click', () => {
+                    this.switchCamera();
+                });
+                
+                document.getElementById('settingsBtn').addEventListener('click', () => {
+                    this.showSettings();
+                });
+                
+                // Handle orientation change
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => {
+                        this.adjustVideoSize();
+                    }, 500);
+                });
+                
+                // Handle visibility change
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.pauseStream();
+                    } else {
+                        this.resumeStream();
+                    }
+                });
+            }
+            
+            connectToServer() {
+                this.showLoading(true);
+                
+                try {
+                    this.socket = io(`http://${this.serverUrl}`);
+                    
+                    this.socket.on('connect', () => {
+                        console.log('Connected to server');
+                        this.updateConnectionStatus(true);
+                        this.showLoading(false);
+                        
+                        // Register as mobile client
+                        this.socket.emit('register_client', {
+                            client_id: 'mobile_' + Date.now(),
+                            type: 'mobile'
+                        });
+                    });
+                    
+                    this.socket.on('disconnect', () => {
+                        console.log('Disconnected from server');
+                        this.updateConnectionStatus(false);
+                    });
+                    
+                    this.socket.on('detection_result', (data) => {
+                        this.handleDetectionResult(data);
+                    });
+                    
+                    this.socket.on('error', (error) => {
+                        console.error('Socket error:', error);
+                        this.showError('Lỗi kết nối: ' + error.message);
+                    });
+                    
+                    this.socket.on('connect_error', (error) => {
+                        console.error('Connection error:', error);
+                        this.updateConnectionStatus(false);
+                        this.showError('Không thể kết nối đến server');
+                        this.showLoading(false);
+                    });
+                    
+                } catch (error) {
+                    console.error('Socket connection error:', error);
+                    this.showError('Lỗi khởi tạo kết nối');
+                    this.showLoading(false);
+                }
+            }
+            
+            async toggleCamera() {
+                if (this.isStreaming) {
+                    this.stopCamera();
+                } else {
+                    await this.startCamera();
+                }
+            }
+            
+            async startCamera() {
+                try {
+                    const [width, height] = this.resolution.split('x').map(Number);
+                    
+                    const constraints = {
+                        video: {
+                            facingMode: this.currentCamera,
+                            width: { ideal: width },
+                            height: { ideal: height }
+                        },
+                        audio: false
+                    };
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    const video = document.getElementById('videoElement');
+                    video.srcObject = this.stream;
+                    
+                    video.onloadedmetadata = () => {
+                        this.adjustVideoSize();
+                        this.isStreaming = true;
+                        this.updateCameraButton();
+                        this.startFrameCapture();
+                    };
+                    
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    this.showError('Không thể truy cập camera: ' + error.message);
+                }
+            }
+            
+            stopCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                
+                if (this.frameInterval) {
+                    clearInterval(this.frameInterval);
+                    this.frameInterval = null;
+                }
+                
+                this.isStreaming = false;
+                this.updateCameraButton();
+                this.clearDetections();
+                
+                const video = document.getElementById('videoElement');
+                video.srcObject = null;
+            }
+            
+            async switchCamera() {
+                if (!this.isStreaming) return;
+                
+                this.currentCamera = this.currentCamera === 'user' ? 'environment' : 'user';
+                
+                this.stopCamera();
+                setTimeout(() => {
+                    this.startCamera();
+                }, 100);
+            }
+            
+            startFrameCapture() {
+                if (this.frameInterval) {
+                    clearInterval(this.frameInterval);
+                }
+                
+                const interval = 1000 / this.fps;
+                this.frameInterval = setInterval(() => {
+                    this.captureAndSendFrame();
+                }, interval);
+            }
+            
+            captureAndSendFrame() {
+                if (!this.isStreaming || !this.socket || !this.socket.connected) return;
+                
+                const video = document.getElementById('videoElement');
+                if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+                
+                // Set canvas size to match video
+                this.canvas.width = video.videoWidth;
+                this.canvas.height = video.videoHeight;
+                
+                // Draw video frame to canvas
+                this.ctx.drawImage(video, 0, 0);
+                
+                // Convert to base64
+                const imageData = this.canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Send to server
+                this.socket.emit('camera_frame', {
+                    image: imageData,
+                    timestamp: Date.now(),
+                    client_id: 'mobile_' + Date.now()
+                });
+            }
+            
+            handleDetectionResult(data) {
+                this.lastDetections = data.detections || [];
+                this.updateDetectionDisplay();
+                this.updateBoundingBoxes();
+            }
+            
+            updateDetectionDisplay() {
+                const resultsDiv = document.getElementById('detectionResults');
+                resultsDiv.innerHTML = '';
+                
+                if (this.lastDetections.length === 0) {
+                    return;
+                }
+                
+                this.lastDetections.forEach((detection, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'detection-card';
+                    
+                    if (detection.employee) {
+                        const confidence = Math.round(detection.confidence * 100);
+                        card.innerHTML = `
+                            <div class="employee-info">${detection.employee.name}</div>
+                            <div class="employee-details">
+                                Mã NV: ${detection.employee.employee_code}<br>
+                                Phòng ban: ${detection.employee.department || 'N/A'}
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${confidence}%"></div>
+                            </div>
+                            <div style="text-align: right; margin-top: 5px; font-size: 12px; color: #666;">
+                                Độ tin cậy: ${confidence}%
+                            </div>
+                        `;
+                    } else {
+                        card.innerHTML = `
+                            <div class="employee-info" style="color: #dc3545;">Không nhận diện được</div>
+                            <div class="employee-details">Khuôn mặt chưa được đăng ký trong hệ thống</div>
+                        `;
+                    }
+                    
+                    resultsDiv.appendChild(card);
+                });
+            }
+            
+            updateBoundingBoxes() {
+                const container = document.getElementById('boundingBoxes');
+                container.innerHTML = '';
+                
+                if (this.lastDetections.length === 0) return;
+                
+                const video = document.getElementById('videoElement');
+                const videoRect = video.getBoundingClientRect();
+                
+                this.lastDetections.forEach((detection, index) => {
+                    if (!detection.bbox) return;
+                    
+                    const [x, y, width, height] = detection.bbox;
+                    
+                    // Scale bounding box to video display size
+                    const scaleX = videoRect.width / video.videoWidth;
+                    const scaleY = videoRect.height / video.videoHeight;
+                    
+                    const scaledX = x * scaleX;
+                    const scaledY = y * scaleY;
+                    const scaledWidth = width * scaleX;
+                    const scaledHeight = height * scaleY;
+                    
+                    const box = document.createElement('div');
+                    box.className = 'bounding-box';
+                    box.style.left = scaledX + 'px';
+                    box.style.top = scaledY + 'px';
+                    box.style.width = scaledWidth + 'px';
+                    box.style.height = scaledHeight + 'px';
+                    
+                    if (detection.employee) {
+                        box.style.borderColor = '#00ff00';
+                        box.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+                    } else {
+                        box.style.borderColor = '#ff0000';
+                        box.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                    }
+                    
+                    const label = document.createElement('div');
+                    label.className = 'box-label';
+                    label.textContent = detection.employee ? 
+                        detection.employee.name : 
+                        'Không xác định';
+                    label.style.backgroundColor = detection.employee ? 
+                        'rgba(0, 255, 0, 0.8)' : 
+                        'rgba(255, 0, 0, 0.8)';
+                    
+                    box.appendChild(label);
+                    container.appendChild(box);
+                });
+            }
+            
+            adjustVideoSize() {
+                // Bounding boxes sẽ được cập nhật khi có detection mới
+                if (this.lastDetections.length > 0) {
+                    setTimeout(() => {
+                        this.updateBoundingBoxes();
+                    }, 100);
+                }
+            }
+            
+            updateConnectionStatus(connected) {
+                const dot = document.getElementById('connectionDot');
+                const text = document.getElementById('connectionText');
+                
+                if (connected) {
+                    dot.classList.add('connected');
+                    text.textContent = 'Đã kết nối';
+                } else {
+                    dot.classList.remove('connected');
+                    text.textContent = 'Mất kết nối';
+                }
+            }
+            
+            updateCameraButton() {
+                const btn = document.getElementById('toggleCamera');
+                if (this.isStreaming) {
+                    btn.textContent = 'Tắt camera';
+                    btn.className = 'btn btn-danger';
+                } else {
+                    btn.textContent = 'Bật camera';
+                    btn.className = 'btn btn-success';
+                }
+            }
+            
+            showLoading(show) {
+                const loading = document.getElementById('loadingScreen');
+                loading.style.display = show ? 'block' : 'none';
+            }
+            
+            showError(message) {
+                // Remove existing error messages
+                const existingErrors = document.querySelectorAll('.error-message');
+                existingErrors.forEach(error => error.remove());
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                
+                document.body.appendChild(errorDiv);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            }
+            
+            clearDetections() {
+                this.lastDetections = [];
+                document.getElementById('detectionResults').innerHTML = '';
+                document.getElementById('boundingBoxes').innerHTML = '';
+            }
+            
+            showSettings() {
+                document.getElementById('settingsModal').style.display = 'block';
+                document.getElementById('serverUrl').value = this.serverUrl;
+                document.getElementById('resolution').value = this.resolution;
+                document.getElementById('fps').value = this.fps;
+            }
+            
+            loadSettings() {
+                const serverUrl = localStorage.getItem('serverUrl');
+                const resolution = localStorage.getItem('resolution');
+                const fps = localStorage.getItem('fps');
+                
+                if (serverUrl) this.serverUrl = serverUrl;
+                if (resolution) this.resolution = resolution;
+                if (fps) this.fps = parseInt(fps);
+            }
+            
+            pauseStream() {
+                if (this.frameInterval) {
+                    clearInterval(this.frameInterval);
+                    this.frameInterval = null;
+                }
+            }
+            
+            resumeStream() {
+                if (this.isStreaming && !this.frameInterval) {
+                    this.startFrameCapture();
+                }
+            }
+        }
+        
+        // Global functions for settings modal
+        function saveSettings() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const resolution = document.getElementById('resolution').value;
+            const fps = document.getElementById('fps').value;
+            
+            localStorage.setItem('serverUrl', serverUrl);
+            localStorage.setItem('resolution', resolution);
+            localStorage.setItem('fps', fps);
+            
+            // Update app settings
+            if (window.app) {
+                window.app.serverUrl = serverUrl;
+                window.app.resolution = resolution;
+                window.app.fps = parseInt(fps);
+                
+                // Reconnect if server URL changed
+                if (window.app.socket) {
+                    window.app.socket.disconnect();
+                    setTimeout(() => {
+                        window.app.connectToServer();
+                    }, 500);
+                }
+            }
+            
+            closeSettings();
+            alert('Cài đặt đã được lưu!');
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+        
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            window.app = new MobileAttendanceApp();
+        });
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (window.app) {
+                window.app.stopCamera();
+                if (window.app.socket) {
+                    window.app.socket.disconnect();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
