@@ -311,17 +311,8 @@
                 console.log('✅ Connected to server');
                 updateConnectionStatus(true);
                 
-                // Register as desktop monitor
-                socket.emit('register_desktop_monitor', {
-                    settings: {
-                        auto_detection: detectionActive,
-                        display_mode: 'real-time'
-                    },
-                    client_info: {
-                        type: 'desktop',
-                        timestamp: new Date().toISOString()
-                    }
-                });
+                // Join desktop monitoring room
+                socket.emit('join_desktop_monitor');
             });
 
             socket.on('disconnect', function() {
@@ -359,32 +350,6 @@
             socket.on('stats_update', function(data) {
                 updateStats(data.stats);
                 updateConnectedClients(data.connected_clients);
-            });
-
-            // 🎥 Handle video frame updates from mobile
-            socket.on('video_frame_update', function(data) {
-                console.log('📹 Received video frame from mobile');
-                displayMobileVideoFrame(data);
-            });
-
-            // 📱 Handle mobile client connections
-            socket.on('mobile_client_connected', function(data) {
-                console.log('📱 Mobile client connected:', data);
-                showMobileConnected();
-            });
-
-            // 🔄 Handle detection state changes
-            socket.on('detection_state_changed', function(data) {
-                detectionActive = data.detection_active;
-                updateDetectionUI();
-                console.log('🔍 Detection state changed:', data.detection_active);
-            });
-
-            // ✅ Handle desktop registration confirmation
-            socket.on('desktop_registration_confirmed', function(data) {
-                console.log('🖥️ Desktop registered successfully:', data);
-                // Request current system status
-                socket.emit('get_system_status');
             });
         }
 
@@ -450,65 +415,6 @@
                     </div>
                 </div>
             `;
-        }
-
-        // 🎥 Display mobile video frame on desktop
-        function displayMobileVideoFrame(data) {
-            const viewer = document.getElementById('mobileViewer');
-            
-            if (!data.frame) {
-                console.warn('No frame data received');
-                return;
-            }
-
-            // Create or update video display
-            let videoImg = viewer.querySelector('#mobileVideoStream');
-            
-            if (!videoImg) {
-                viewer.innerHTML = `
-                    <div class="position-relative w-100 h-100">
-                        <img id="mobileVideoStream" 
-                             src="${data.frame}" 
-                             class="w-100 h-100" 
-                             style="object-fit: contain; border-radius: 10px;" 
-                             alt="Mobile Video Stream">
-                        <div class="position-absolute top-0 start-0 m-2">
-                            <span class="badge bg-success">
-                                <span class="connection-indicator connected"></span>
-                                LIVE từ Mobile
-                            </span>
-                        </div>
-                        <div class="position-absolute bottom-0 end-0 m-2">
-                            <small class="badge bg-dark">
-                                🎯 ${data.detections ? data.detections.length : 0} faces
-                            </small>
-                        </div>
-                    </div>
-                `;
-                videoImg = viewer.querySelector('#mobileVideoStream');
-            } else {
-                // Update existing image
-                videoImg.src = data.frame;
-                
-                // Update detection count
-                const detectionBadge = viewer.querySelector('.badge.bg-dark');
-                if (detectionBadge) {
-                    detectionBadge.innerHTML = `🎯 ${data.detections ? data.detections.length : 0} faces`;
-                }
-            }
-
-            // Update stats if detections found
-            if (data.detections && data.detections.length > 0) {
-                console.log(`👥 Detected ${data.detections.length} faces:`, data.detections);
-                
-                // Update global stats
-                stats.totalDetections += data.detections.length;
-                updateStatsDisplay();
-            }
-
-            // Update frame count
-            stats.totalFrames++;
-            updateStatsDisplay();
         }
 
         function updateDetectionUI() {
