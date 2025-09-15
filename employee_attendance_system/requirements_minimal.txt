@@ -1,0 +1,13 @@
+# Minimal requirements for basic functionality
+Flask
+Flask-SocketIO
+SQLAlchemy
+opencv-python
+deepface
+tensorflow
+numpy
+Pillow
+python-socketio
+eventlet
+protobuf
+requests

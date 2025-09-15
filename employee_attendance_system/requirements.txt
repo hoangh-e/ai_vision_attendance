@@ -6,31 +6,24 @@ Werkzeug==2.3.7
 # Database ORM
 SQLAlchemy==2.0.21
 
-# Computer Vision & AI Libraries
-opencv-python==4.8.1.78
-deepface==0.0.79
-tensorflow==2.13.0
-tf-keras==2.13.0
-numpy==1.24.3
-Pillow==10.0.1
+# Computer Vision & AI Libraries  
+opencv-python-headless==4.10.0.84
+deepface>=0.0.95
+tensorflow>=2.20.0
+numpy>=1.26.0
+keras>=3.11.0
+tf-keras>=2.20.0
+Pillow>=10.0.1
 
 # Real-time Communication
 python-socketio==5.9.0
-eventlet==0.33.3
+eventlet>=0.40.0
 
 # Additional dependencies for AI processing
-protobuf==3.20.3
-gdown==4.6.0
-tqdm==4.65.0
-requests==2.31.0
-matplotlib==3.7.2
-pandas==2.0.3
-
-# File handling and utilities
-uuid
-base64
-json
-os-sys
-
-# Development and debugging
-logging
+protobuf>=3.20.3
+gdown>=4.6.0
+tqdm>=4.65.0
+requests>=2.31.0
+matplotlib>=3.7.2
+pandas>=2.0.3
+pyOpenSSL

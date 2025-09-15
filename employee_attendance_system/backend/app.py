@@ -252,6 +252,54 @@ def handle_laptop_capture(data):
 def mobile_app():
     return app.send_static_file('mobile_app/index.html')
 
+@app.route('/mobile/simple')
+def mobile_app_simple():
+    return app.send_static_file('mobile_app/simple.html')
+
+@app.route('/api/process_face', methods=['POST'])
+def process_face_api():
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'message': 'Không có dữ liệu hình ảnh'}), 400
+        
+        # Decode base64 image
+        image_data = data['image'].split(',')[1]  # Remove data:image/jpeg;base64,
+        img_bytes = base64.b64decode(image_data)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return jsonify({'success': False, 'message': 'Không thể decode hình ảnh'}), 400
+        
+        # Process with face recognition
+        result = face_service.recognize_face(frame)
+        
+        if result['success']:
+            # Record attendance
+            employee_id = result['employee']['employee_id']
+            attendance_result = employee_service.record_attendance(employee_id)
+            
+            return jsonify({
+                'success': True,
+                'employee': result['employee'],
+                'confidence': result['confidence'],
+                'timestamp': data.get('timestamp', time.strftime('%Y-%m-%d %H:%M:%S')),
+                'attendance': attendance_result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get('message', 'Không nhận diện được khuôn mặt')
+            })
+            
+    except Exception as e:
+        print(f"Error in process_face_api: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Lỗi server: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     # Tạo thư mục uploads nếu chưa có
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -263,5 +311,11 @@ if __name__ == '__main__':
     print("Starting Flask-SocketIO server...")
     print("Access laptop interface at: http://localhost:5000")
     print("Access mobile interface at: http://localhost:5000/mobile")
+    print("Simple mobile interface at: http://localhost:5000/mobile/simple")
+    print("")
+    print("⚠️  Lưu ý cho mobile:")
+    print("- Camera cần HTTPS để hoạt động trên điện thoại")
+    print("- Nếu truy cập từ điện thoại khác, dùng IP: http://[YOUR_IP]:5000/mobile/simple")
+    print("- Hoặc cài đặt HTTPS certificate để dùng https://")
     
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

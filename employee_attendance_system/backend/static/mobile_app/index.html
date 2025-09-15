@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BHK Tech - Hệ Thống Chấm Công</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .camera-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .camera-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #000;
+            aspect-ratio: 4/3;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #FFD700;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.7; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .detection-result {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .error-result {
+            background: rgba(244, 67, 54, 0.2);
+            border: 2px solid #f44336;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: auto;
+            padding: 20px 0;
+            opacity: 0.8;
+        }
+
+        .loading {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid #FFD700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .camera-section {
+                padding: 20px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">BHK TECH</div>
+            <div class="subtitle">Hệ Thống Chấm Công Thông Minh</div>
+        </div>
+
+        <div class="camera-section">
+            <div class="camera-container">
+                <video id="video" autoplay muted playsinline></video>
+                <div class="camera-overlay"></div>
+            </div>
+            
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary">Bắt Đầu</button>
+                <button id="captureBtn" class="btn btn-secondary" disabled>Chụp Ảnh</button>
+                <button id="stopBtn" class="btn btn-danger" disabled>Dừng</button>
+            </div>
+        </div>
+
+        <div class="status">
+            <div class="status-text" id="statusText">Nhấn "Bắt Đầu" để khởi tạo camera</div>
+            <div id="resultContainer"></div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2024 BHK Tech. All rights reserved.</p>
+            <p>Phiên bản Mobile v1.0</p>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js" 
+            onerror="console.error('Failed to load Socket.IO from CDN'); loadSocketIOFallback()"></script>
+    <script>
+        function loadSocketIOFallback() {
+            // Try loading from local server path
+            var script = document.createElement('script');
+            script.src = '/static/js/socket.io.min.js';
+            script.onerror = function() {
+                console.error('Socket.IO completely failed to load');
+                document.getElementById('statusText').textContent = 'Lỗi: Không thể tải Socket.IO. Vui lòng kiểm tra kết nối mạng!';
+            };
+            document.head.appendChild(script);
+        }
+    </script>
+    <script>
+        // Initialize variables
+        let video = document.getElementById('video');
+        let startBtn = document.getElementById('startBtn');
+        let captureBtn = document.getElementById('captureBtn');
+        let stopBtn = document.getElementById('stopBtn');
+        let statusText = document.getElementById('statusText');
+        let resultContainer = document.getElementById('resultContainer');
+        let loading = document.getElementById('loading');
+        
+        let stream = null;
+        let socket = null;
+
+        // Initialize Socket.IO with error handling
+        try {
+            if (typeof io !== 'undefined') {
+                socket = io();
+            } else {
+                console.error('Socket.IO library not loaded');
+                statusText.textContent = 'Lỗi: Không thể kết nối Socket.IO. Vui lòng refresh trang!';
+            }
+        } catch (error) {
+            console.error('Socket.IO initialization error:', error);
+            statusText.textContent = 'Lỗi kết nối. Vui lòng refresh trang!';
+        }
+
+        // Socket connection
+        if (socket) {
+            socket.on('connect', function() {
+                console.log('Connected to server');
+                statusText.textContent = 'Đã kết nối với server. Sẵn sàng sử dụng!';
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Disconnected from server');
+                statusText.textContent = 'Mất kết nối với server. Đang thử kết nối lại...';
+            });
+
+            socket.on('detection_result', function(data) {
+                hideLoading();
+                displayResult(data);
+            });
+        }
+
+        // Camera controls
+        startBtn.addEventListener('click', startCamera);
+        captureBtn.addEventListener('click', captureImage);
+        stopBtn.addEventListener('click', stopCamera);
+
+        async function startCamera() {
+            try {
+                statusText.textContent = 'Đang khởi tạo camera...';
+                
+                // Kiểm tra tương thích với các browser khác nhau
+                if (!navigator.mediaDevices && !navigator.getUserMedia && !navigator.webkitGetUserMedia && !navigator.mozGetUserMedia) {
+                    throw new Error('Trình duyệt không hỗ trợ camera API. Vui lòng sử dụng Chrome, Firefox, Safari hoặc Edge phiên bản mới.');
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640, max: 1280 },
+                        height: { ideal: 480, max: 720 }
+                    }
+                };
+
+                // Thử với API mới trước
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } 
+                // Fallback cho browser cũ
+                else {
+                    const getUserMedia = navigator.getUserMedia || 
+                                       navigator.webkitGetUserMedia || 
+                                       navigator.mozGetUserMedia;
+                    
+                    if (!getUserMedia) {
+                        throw new Error('Không có API camera nào được hỗ trợ');
+                    }
+
+                    stream = await new Promise((resolve, reject) => {
+                        getUserMedia.call(navigator, constraints, resolve, reject);
+                    });
+                }
+
+                video.srcObject = stream;
+
+                // Đợi video load xong
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = resolve;
+                });
+
+                startBtn.disabled = true;
+                captureBtn.disabled = false;
+                stopBtn.disabled = false;
+                
+                statusText.textContent = 'Camera đã sẵn sàng. Hãy đặt mặt vào khung hình!';
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                let errorMessage = 'Lỗi camera: ' + error.message;
+                
+                // Thông báo lỗi cụ thể
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = 'Vui lòng cho phép truy cập camera trong cài đặt trình duyệt';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = 'Không tìm thấy camera. Vui lòng kiểm tra thiết bị';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage = 'Trình duyệt không hỗ trợ camera';
+                } else if (error.message.includes('HTTPS')) {
+                    errorMessage = 'Camera chỉ hoạt động trên HTTPS. Vui lòng truy cập qua https://';
+                }
+                
+                statusText.textContent = 'Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập!';
+                displayError(errorMessage);
+            }
+        }
+
+        function captureImage() {
+            if (!stream) {
+                displayError('Camera chưa được khởi tạo!');
+                return;
+            }
+
+            showLoading();
+            statusText.textContent = 'Đang xử lý hình ảnh...';
+
+            // Create canvas to capture image
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to server for processing
+            if (socket && socket.connected) {
+                socket.emit('process_frame', {
+                    image: imageData,
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                hideLoading();
+                displayError('Không có kết nối với server. Vui lòng refresh trang!');
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+            }
+
+            startBtn.disabled = false;
+            captureBtn.disabled = true;
+            stopBtn.disabled = true;
+            
+            statusText.textContent = 'Camera đã được tắt. Nhấn "Bắt Đầu" để sử dụng lại!';
+            clearResults();
+        }
+
+        function displayResult(data) {
+            resultContainer.innerHTML = '';
+            
+            if (data.success && data.employee) {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'detection-result';
+                resultDiv.innerHTML = `
+                    <h3>✅ Nhận diện thành công!</h3>
+                    <p><strong>Nhân viên:</strong> ${data.employee.name}</p>
+                    <p><strong>Mã NV:</strong> ${data.employee.employee_id}</p>
+                    <p><strong>Phòng ban:</strong> ${data.employee.department || 'N/A'}</p>
+                    <p><strong>Thời gian:</strong> ${new Date(data.timestamp).toLocaleString('vi-VN')}</p>
+                    <p><strong>Độ chính xác:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
+                `;
+                resultContainer.appendChild(resultDiv);
+                statusText.textContent = 'Chấm công thành công! Có thể chụp ảnh tiếp tục.';
+            } else {
+                displayError(data.message || 'Không nhận diện được khuôn mặt!');
+            }
+        }
+
+        function displayError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-result';
+            errorDiv.innerHTML = `
+                <h3>❌ Lỗi</h3>
+                <p>${message}</p>
+            `;
+            resultContainer.innerHTML = '';
+            resultContainer.appendChild(errorDiv);
+            statusText.textContent = 'Có lỗi xảy ra. Vui lòng thử lại!';
+        }
+
+        function clearResults() {
+            resultContainer.innerHTML = '';
+        }
+
+        function showLoading() {
+            loading.style.display = 'flex';
+        }
+
+        function hideLoading() {
+            loading.style.display = 'none';
+        }
+
+        // Handle page visibility
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && stream) {
+                // Pause when page is hidden
+                video.pause();
+            } else if (!document.hidden && stream) {
+                // Resume when page is visible
+                video.play();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,6 +1,12 @@
 # setup.py
 import os
+import sys
 import sqlite3
+
+# Add backend to Python path
+backend_path = os.path.join(os.path.dirname(__file__), 'backend')
+sys.path.insert(0, backend_path)
+
 from database.database import DatabaseManager
 
 def setup_project():

@@ -1,40 +1,67 @@
 @echo off
-echo 🚀 Bắt đầu cài đặt hệ thống điểm danh...
+echo 🚀 Bat dau cai dat he thong diem danh...
 
-REM Kiểm tra Python
+REM Kiem tra Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Python chưa được cài đặt
+    echo ❌ Python chua duoc cai dat
     pause
     exit /b 1
 )
 
-echo ✅ Python đã có sẵn
+echo ✅ Python da co san
 
-REM Tạo virtual environment
-echo 📦 Tạo virtual environment...
+REM Tao virtual environment
+echo 📦 Tao virtual environment...
 python -m venv venv
 
-REM Kích hoạt virtual environment
+REM Kich hoat virtual environment
 call venv\Scripts\activate.bat
 
 REM Upgrade pip
-echo ⬆️ Cập nhật pip...
+echo ⬆️ Cap nhat pip...
 python -m pip install --upgrade pip
 
-REM Cài đặt requirements
-echo 📥 Cài đặt dependencies...
+REM Cai dat requirements
+echo 📥 Cai dat dependencies...
 pip install -r requirements.txt
+if errorlevel 1 (
+    echo ❌ Loi cai dat voi version co dinh
+    echo 🔧 Thu cai dat voi requirements minimal...
+    pip install -r requirements_minimal.txt
+    if errorlevel 1 (
+        echo ❌ Van loi, cai dat tung package rieng le...
+        pip install Flask
+        pip install Flask-SocketIO
+        pip install SQLAlchemy
+        pip install opencv-python
+        pip install deepface
+        pip install tensorflow
+        pip install numpy
+        pip install Pillow
+        pip install python-socketio
+        pip install eventlet
+        pip install protobuf
+        pip install requests
+    )
+)
 
-REM Chạy setup
-echo ⚙️ Thiết lập project...
+REM Chay setup
+echo ⚙️ Thiet lap project...
 python setup.py
+if errorlevel 1 (
+    echo ❌ Loi setup project
+    echo 💡 Ban co the chay thu cong: python setup.py
+)
 
-echo 🎉 Cài đặt hoàn tất!
+echo 🎉 Cai dat hoan tat!
 echo.
-echo 🚀 Để chạy ứng dụng:
-echo 1. Kích hoạt virtual environment: venv\Scripts\activate.bat
-echo 2. Chạy server: python app.py
-echo 3. Mở trình duyệt: http://localhost:5000
-echo 4. Mobile app: http://localhost:5000/mobile
+echo 🚀 De chay ung dung:
+echo 1. Kich hoat virtual environment: venv\Scripts\activate.bat
+echo 2. Chuyen vao thu muc backend: cd backend
+echo 3. Chay server: python app.py
+echo 4. Mo trinh duyet: http://localhost:5000 (laptop)
+echo 5. Mobile app: http://[YOUR_IP]:5000/mobile (dien thoai)
+echo.
+echo 💡 Lay IP laptop: ipconfig
 pause

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💻 Real-time Dashboard - BHK Tech</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            padding: 20px;
+            height: 100vh;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-card h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #bdc3c7;
+        }
+
+        .status-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .activity-feed {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .activity-feed h2 {
+            margin-bottom: 15px;
+            color: #ecf0f1;
+        }
+
+        .activity-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3498db;
+        }
+
+        .activity-item.detection {
+            border-left-color: #2ecc71;
+        }
+
+        .activity-item.warning {
+            border-left-color: #f39c12;
+        }
+
+        .activity-item.error {
+            border-left-color: #e74c3c;
+        }
+
+        .activity-time {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-bottom: 5px;
+        }
+
+        .sidebar {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .control-panel h3 {
+            margin-bottom: 15px;
+            color: #ecf0f1;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .connected-clients {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .client-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+
+        .client-item .client-id {
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
+        .client-item .client-status {
+            font-size: 14px;
+            color: #2ecc71;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .status-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="main-content">
+            <div class="header">
+                <h1>💻 Real-time Video Dashboard</h1>
+                <p>BHK Tech - AI Vision Attendance System</p>
+                <div id="dashboardStatus" class="status disconnected">🔴 Disconnected</div>
+            </div>
+
+            <div class="status-grid">
+                <div class="status-card">
+                    <h3>Connected Devices</h3>
+                    <div class="value" id="connectedDevices">0</div>
+                </div>
+                <div class="status-card">
+                    <h3>Total Frames</h3>
+                    <div class="value" id="totalFrames">0</div>
+                </div>
+                <div class="status-card">
+                    <h3>Faces Detected</h3>
+                    <div class="value" id="totalFaces">0</div>
+                </div>
+                <div class="status-card">
+                    <h3>Processing Rate</h3>
+                    <div class="value" id="processingRate">0/sec</div>
+                </div>
+            </div>
+
+            <div class="activity-feed">
+                <h2>🔄 Real-time Activity</h2>
+                <div id="activityList">
+                    <div class="activity-item">
+                        <div class="activity-time">Starting dashboard...</div>
+                        <div>Waiting for mobile connections...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="control-panel">
+                <h3>🎛️ System Controls</h3>
+                <button id="toggleDetection" class="btn btn-success">✅ Detection ON</button>
+                <button id="clearActivity" class="btn btn-primary">🗑️ Clear Activity</button>
+                <button id="exportData" class="btn btn-primary">📊 Export Data</button>
+            </div>
+
+            <div class="connected-clients">
+                <h3>📱 Connected Clients</h3>
+                <div id="clientsList">
+                    <div style="color: #95a5a6; font-style: italic;">No clients connected</div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h3>⚙️ Settings</h3>
+                <label style="display: block; margin-bottom: 10px;">
+                    <input type="range" id="confidenceThreshold" min="0.3" max="0.9" step="0.1" value="0.6" style="width: 100%;">
+                    <small>Confidence Threshold: <span id="confidenceValue">0.6</span></small>
+                </label>
+                <label style="display: block; margin-bottom: 10px;">
+                    <input type="checkbox" id="autoSaveResults" checked>
+                    <small>Auto-save Results</small>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        // Global variables
+        let socket;
+        let connectedClients = new Map();
+        let totalFrames = 0;
+        let totalFaces = 0;
+        let isDetectionEnabled = true;
+        let activityBuffer = [];
+        let lastProcessingTime = 0;
+        let processingRate = 0;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            connectToServer();
+            setupEventListeners();
+            startStatsUpdate();
+        });
+
+        function connectToServer() {
+            socket = io('http://localhost:5003', {
+                transports: ['websocket', 'polling'],
+                timeout: 5000
+            });
+
+            socket.on('connect', function() {
+                console.log('🟢 Dashboard connected to server');
+                updateDashboardStatus(true);
+                socket.emit('join_dashboard');
+                addActivity('✅ Dashboard connected to server', 'success');
+            });
+
+            socket.on('disconnect', function() {
+                console.log('🔴 Dashboard disconnected');
+                updateDashboardStatus(false);
+                addActivity('❌ Dashboard disconnected', 'error');
+            });
+
+            socket.on('dashboard_status', function(data) {
+                console.log('Dashboard status:', data);
+                addActivity('🎛️ Dashboard initialized successfully', 'info');
+            });
+
+            socket.on('frame_processed', function(data) {
+                handleFrameProcessed(data);
+            });
+
+            socket.on('mobile_update', function(data) {
+                handleMobileUpdate(data);
+            });
+
+            socket.on('connect_error', function(error) {
+                console.error('Connection error:', error);
+                updateDashboardStatus(false);
+                addActivity('❌ Connection failed: ' + error.message, 'error');
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('toggleDetection').addEventListener('click', toggleDetection);
+            document.getElementById('clearActivity').addEventListener('click', clearActivity);
+            document.getElementById('exportData').addEventListener('click', exportData);
+            
+            const confidenceSlider = document.getElementById('confidenceThreshold');
+            confidenceSlider.addEventListener('input', function() {
+                document.getElementById('confidenceValue').textContent = this.value;
+                // TODO: Send to server
+            });
+        }
+
+        function updateDashboardStatus(connected) {
+            const statusEl = document.getElementById('dashboardStatus');
+            if (connected) {
+                statusEl.textContent = '🟢 Connected';
+                statusEl.style.color = '#2ecc71';
+            } else {
+                statusEl.textContent = '🔴 Disconnected';
+                statusEl.style.color = '#e74c3c';
+            }
+        }
+
+        function handleFrameProcessed(data) {
+            totalFrames++;
+            totalFaces += data.faces_detected || 0;
+            
+            // Update client info
+            connectedClients.set(data.client_id, {
+                lastSeen: Date.now(),
+                facesDetected: data.faces_detected || 0
+            });
+
+            // Add activity
+            if (data.faces_detected > 0) {
+                addActivity(`📱 Client detected ${data.faces_detected} face(s)`, 'detection');
+            }
+
+            updateStats();
+            updateClientsList();
+        }
+
+        function handleMobileUpdate(data) {
+            console.log('Mobile update:', data);
+            addActivity(`📱 Mobile status: ${JSON.stringify(data.status)}`, 'info');
+        }
+
+        function addActivity(message, type = 'info') {
+            const activityList = document.getElementById('activityList');
+            const item = document.createElement('div');
+            item.className = `activity-item ${type}`;
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            item.innerHTML = `
+                <div class="activity-time">${timeStr}</div>
+                <div>${message}</div>
+            `;
+            
+            activityList.insertBefore(item, activityList.firstChild);
+            
+            // Keep only last 50 items
+            while (activityList.children.length > 50) {
+                activityList.removeChild(activityList.lastChild);
+            }
+            
+            // Store in buffer for export
+            activityBuffer.push({
+                timestamp: now.toISOString(),
+                message,
+                type
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('connectedDevices').textContent = connectedClients.size;
+            document.getElementById('totalFrames').textContent = totalFrames;
+            document.getElementById('totalFaces').textContent = totalFaces;
+            
+            // Calculate processing rate
+            const now = Date.now();
+            if (lastProcessingTime > 0) {
+                const timeDiff = (now - lastProcessingTime) / 1000;
+                processingRate = Math.round(1 / timeDiff);
+                document.getElementById('processingRate').textContent = processingRate + '/sec';
+            }
+            lastProcessingTime = now;
+        }
+
+        function updateClientsList() {
+            const clientsList = document.getElementById('clientsList');
+            clientsList.innerHTML = '';
+            
+            if (connectedClients.size === 0) {
+                clientsList.innerHTML = '<div style="color: #95a5a6; font-style: italic;">No clients connected</div>';
+                return;
+            }
+            
+            connectedClients.forEach((info, clientId) => {
+                const div = document.createElement('div');
+                div.className = 'client-item';
+                
+                const shortId = clientId.substring(0, 8) + '...';
+                const lastSeen = new Date(info.lastSeen).toLocaleTimeString();
+                
+                div.innerHTML = `
+                    <div class="client-id">ID: ${shortId}</div>
+                    <div class="client-status">Active - ${info.facesDetected} faces</div>
+                    <div style="font-size: 12px; color: #95a5a6;">Last: ${lastSeen}</div>
+                `;
+                
+                clientsList.appendChild(div);
+            });
+        }
+
+        function toggleDetection() {
+            isDetectionEnabled = !isDetectionEnabled;
+            const btn = document.getElementById('toggleDetection');
+            
+            if (isDetectionEnabled) {
+                btn.textContent = '✅ Detection ON';
+                btn.className = 'btn btn-success';
+                addActivity('✅ Face detection enabled', 'success');
+            } else {
+                btn.textContent = '❌ Detection OFF';
+                btn.className = 'btn btn-danger';
+                addActivity('❌ Face detection disabled', 'warning');
+            }
+            
+            // TODO: Send to server
+            // socket.emit('toggle_detection', { enabled: isDetectionEnabled });
+        }
+
+        function clearActivity() {
+            document.getElementById('activityList').innerHTML = '';
+            activityBuffer = [];
+            addActivity('🗑️ Activity log cleared', 'info');
+        }
+
+        function exportData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                stats: {
+                    totalFrames,
+                    totalFaces,
+                    connectedDevices: connectedClients.size,
+                    processingRate
+                },
+                activity: activityBuffer,
+                clients: Array.from(connectedClients.entries())
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dashboard-export-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            addActivity('📊 Data exported successfully', 'success');
+        }
+
+        function startStatsUpdate() {
+            // Clean up old clients every 30 seconds
+            setInterval(() => {
+                const now = Date.now();
+                connectedClients.forEach((info, clientId) => {
+                    if (now - info.lastSeen > 30000) { // 30 seconds timeout
+                        connectedClients.delete(clientId);
+                        addActivity(`📱 Client ${clientId.substring(0, 8)}... disconnected`, 'warning');
+                    }
+                });
+                updateClientsList();
+            }, 30000);
+        }
+    </script>
+</body>
+</html>
