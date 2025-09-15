@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 BHK Tech - Điểm Danh Di Động</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100vw;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .connection-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 10px 0;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            background: #000;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+            min-height: 300px;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .video-overlay-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 20;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats-panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .detection-results {
+            margin: 20px 0;
+        }
+
+        .detection-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            border-left: 4px solid #3498db;
+        }
+
+        .detection-card.employee {
+            border-left-color: #2ecc71;
+        }
+
+        .detection-card.stranger {
+            border-left-color: #e74c3c;
+        }
+
+        .employee-info {
+            text-align: left;
+        }
+
+        .employee-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .employee-details {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .confidence-bar {
+            margin-top: 10px;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e74c3c, #f39c12, #2ecc71);
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 5px; }
+            .header h1 { font-size: 20px; }
+            .btn { min-width: 100px; font-size: 14px; }
+            .video-container { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 BHK Tech Attendance</h1>
+            <p>Hệ Thống Điểm Danh Thông Minh</p>
+            <div id="connectionStatus" class="connection-status disconnected">
+                🔴 Đang kết nối...
+            </div>
+        </div>
+
+        <div class="video-container">
+            <video id="videoElement" autoplay muted playsinline></video>
+            <canvas id="overlayCanvas"></canvas>
+            <div class="video-overlay-info" id="videoInfo">
+                📹 Camera chưa khởi động
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="startCameraBtn" class="btn btn-success">📹 Bật Camera</button>
+            <button id="stopCameraBtn" class="btn btn-danger" style="display:none;">⏹ Tắt Camera</button>
+            <button id="switchCameraBtn" class="btn btn-primary" style="display:none;">🔄 Đổi Camera</button>
+        </div>
+
+        <div class="stats-panel">
+            <h3>📊 Thống Kê Real-time</h3>
+            <div class="stats-row">
+                <span>Frames Sent:</span>
+                <span id="framesSent">0</span>
+            </div>
+            <div class="stats-row">
+                <span>Faces Detected:</span>
+                <span id="facesDetected">0</span>
+            </div>
+            <div class="stats-row">
+                <span>FPS:</span>
+                <span id="currentFPS">0</span>
+            </div>
+            <div class="stats-row">
+                <span>Ping:</span>
+                <span id="networkPing">0ms</span>
+            </div>
+        </div>
+
+        <div class="detection-results" id="detectionResults">
+            <!-- Detection cards will be populated here -->
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // =====================================================
+        // GLOBAL VARIABLES
+        // =====================================================
+        let socket;
+        let videoElement;
+        let overlayCanvas;
+        let overlayCtx;
+        let stream;
+        let isStreaming = false;
+        let framesSent = 0;
+        let facesDetected = 0;
+        let currentFPS = 0;
+        let lastFrameTime = 0;
+        let currentCamera = 'user'; // 'user' for front, 'environment' for back
+        let detectionActive = false;
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeElements();
+            connectToServer();
+            setupEventListeners();
+        });
+
+        function initializeElements() {
+            videoElement = document.getElementById('videoElement');
+            overlayCanvas = document.getElementById('overlayCanvas');
+            overlayCtx = overlayCanvas.getContext('2d');
+            
+            // Set canvas size when video loads
+            videoElement.addEventListener('loadedmetadata', function() {
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+            });
+
+            videoElement.addEventListener('resize', function() {
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+            });
+        }
+
+        function connectToServer() {
+            // Connect to the main server
+            socket = io(window.location.origin, {
+                transports: ['websocket', 'polling'],
+                timeout: 5000
+            });
+
+            socket.on('connect', function() {
+                console.log('✅ Connected to server');
+                updateConnectionStatus(true);
+                
+                // Register as mobile client
+                socket.emit('register_mobile_client', {
+                    user_agent: navigator.userAgent,
+                    screen_size: `${screen.width}x${screen.height}`
+                });
+            });
+
+            socket.on('disconnect', function() {
+                console.log('❌ Disconnected from server');
+                updateConnectionStatus(false);
+            });
+
+            socket.on('mobile_registered', function(data) {
+                console.log('📱 Mobile client registered:', data);
+                detectionActive = data.detection_active;
+                updateVideoInfo();
+            });
+
+            socket.on('detection_result', function(data) {
+                handleDetectionResult(data);
+            });
+
+            socket.on('detection_status_changed', function(data) {
+                detectionActive = data.active;
+                updateVideoInfo();
+            });
+
+            socket.on('connect_error', function(error) {
+                console.error('❌ Connection error:', error);
+                updateConnectionStatus(false);
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+            document.getElementById('stopCameraBtn').addEventListener('click', stopCamera);
+            document.getElementById('switchCameraBtn').addEventListener('click', switchCamera);
+        }
+
+        // =====================================================
+        // CAMERA CONTROLS
+        // =====================================================
+        async function startCamera() {
+            try {
+                updateVideoInfo('Đang khởi động camera...');
+                
+                const constraints = {
+                    video: {
+                        facingMode: currentCamera,
+                        width: { ideal: 640, max: 1280 },
+                        height: { ideal: 480, max: 720 },
+                        frameRate: { ideal: 15, max: 30 }
+                    },
+                    audio: false
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = stream;
+                
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    videoElement.onloadedmetadata = resolve;
+                });
+
+                isStreaming = true;
+                updateCameraButtons();
+                updateVideoInfo('📹 Camera đang hoạt động');
+                
+                // Start sending frames
+                startFrameCapture();
+                
+            } catch (error) {
+                console.error('❌ Camera error:', error);
+                handleCameraError(error);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            videoElement.srcObject = null;
+            isStreaming = false;
+            updateCameraButtons();
+            updateVideoInfo('📹 Camera đã tắt');
+            
+            // Clear overlay
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            clearDetectionResults();
+        }
+
+        async function switchCamera() {
+            if (!isStreaming) return;
+            
+            currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+            stopCamera();
+            
+            // Small delay before starting new camera
+            setTimeout(() => {
+                startCamera();
+            }, 500);
+        }
+
+        function handleCameraError(error) {
+            let message = 'Lỗi camera: ';
+            
+            if (error.name === 'NotAllowedError') {
+                message += 'Vui lòng cho phép truy cập camera';
+            } else if (error.name === 'NotFoundError') {
+                message += 'Không tìm thấy camera';
+            } else if (error.name === 'NotSupportedError') {
+                message += 'Trình duyệt không hỗ trợ';
+            } else {
+                message += error.message;
+            }
+            
+            updateVideoInfo(message);
+        }
+
+        function updateCameraButtons() {
+            const startBtn = document.getElementById('startCameraBtn');
+            const stopBtn = document.getElementById('stopCameraBtn');
+            const switchBtn = document.getElementById('switchCameraBtn');
+            
+            if (isStreaming) {
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-block';
+                switchBtn.style.display = 'inline-block';
+            } else {
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+                switchBtn.style.display = 'none';
+            }
+        }
+
+        // =====================================================
+        // VIDEO FRAME PROCESSING
+        // =====================================================
+        function startFrameCapture() {
+            if (!isStreaming) return;
+            
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            function captureFrame() {
+                if (!isStreaming || !videoElement.videoWidth) {
+                    requestAnimationFrame(captureFrame);
+                    return;
+                }
+                
+                // Set canvas size to match video
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                
+                // Draw current video frame to canvas
+                ctx.drawImage(videoElement, 0, 0);
+                
+                // Convert to base64
+                const frameData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Send to server
+                socket.emit('video_frame', {
+                    frame: frameData,
+                    timestamp: Date.now(),
+                    client_id: socket.id
+                });
+                
+                // Update stats
+                framesSent++;
+                updateStats();
+                
+                // Calculate FPS
+                const now = Date.now();
+                if (lastFrameTime) {
+                    const fps = 1000 / (now - lastFrameTime);
+                    currentFPS = Math.round(fps * 10) / 10;
+                }
+                lastFrameTime = now;
+                
+                // Continue capturing (throttle to ~10 FPS for mobile)
+                setTimeout(() => {
+                    requestAnimationFrame(captureFrame);
+                }, 100);
+            }
+            
+            requestAnimationFrame(captureFrame);
+        }
+
+        // =====================================================
+        // DETECTION RESULT HANDLING
+        // =====================================================
+        function handleDetectionResult(data) {
+            if (!data.success) {
+                console.error('❌ Detection error:', data.error);
+                return;
+            }
+            
+            // Clear previous overlay
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            // Process detections
+            if (data.detections && data.detections.length > 0) {
+                facesDetected += data.detections.length;
+                drawDetections(data.detections);
+                updateDetectionResults(data.detections);
+            } else {
+                clearDetectionResults();
+            }
+            
+            updateStats();
+        }
+
+        function drawDetections(detections) {
+            overlayCtx.strokeStyle = '#00ff00';
+            overlayCtx.lineWidth = 3;
+            overlayCtx.font = '16px Arial';
+            overlayCtx.fillStyle = '#00ff00';
+            
+            detections.forEach((detection, index) => {
+                if (detection.bbox) {
+                    const [x, y, w, h] = detection.bbox;
+                    
+                    // Draw bounding box
+                    overlayCtx.strokeRect(x, y, w, h);
+                    
+                    // Draw label
+                    let label = detection.employee ? 
+                        `${detection.employee.name} (${Math.round(detection.confidence * 100)}%)` : 
+                        `Unknown (${Math.round(detection.confidence * 100)}%)`;
+                    
+                    overlayCtx.fillText(label, x, y - 10);
+                }
+            });
+        }
+
+        function updateDetectionResults(detections) {
+            const resultsDiv = document.getElementById('detectionResults');
+            resultsDiv.innerHTML = '';
+            
+            detections.forEach((detection, index) => {
+                const card = document.createElement('div');
+                card.className = `detection-card ${detection.employee ? 'employee' : 'stranger'}`;
+                
+                if (detection.employee) {
+                    card.innerHTML = `
+                        <div class="employee-info">
+                            <div class="employee-name">✅ ${detection.employee.name}</div>
+                            <div class="employee-details">
+                                Mã NV: ${detection.employee.employee_code}<br>
+                                Phòng ban: ${detection.employee.department || 'N/A'}
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${detection.confidence * 100}%"></div>
+                            </div>
+                            <small>Độ tin cậy: ${Math.round(detection.confidence * 100)}%</small>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="employee-info">
+                            <div class="employee-name">❓ Không nhận diện được</div>
+                            <div class="employee-details">
+                                Khuôn mặt chưa được đăng ký trong hệ thống
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${detection.confidence * 100}%"></div>
+                            </div>
+                            <small>Độ tin cậy: ${Math.round(detection.confidence * 100)}%</small>
+                        </div>
+                    `;
+                }
+                
+                resultsDiv.appendChild(card);
+            });
+        }
+
+        function clearDetectionResults() {
+            const resultsDiv = document.getElementById('detectionResults');
+            resultsDiv.innerHTML = '<p style="text-align: center; opacity: 0.7;">Chưa có kết quả phát hiện...</p>';
+        }
+
+        // =====================================================
+        // UI UPDATES
+        // =====================================================
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                statusDiv.className = 'connection-status connected';
+                statusDiv.innerHTML = '🟢 Đã kết nối server';
+            } else {
+                statusDiv.className = 'connection-status disconnected';
+                statusDiv.innerHTML = '🔴 Mất kết nối server';
+            }
+        }
+
+        function updateVideoInfo(text) {
+            const infoDiv = document.getElementById('videoInfo');
+            if (text) {
+                infoDiv.textContent = text;
+            } else {
+                infoDiv.textContent = detectionActive ? 
+                    '🔍 Face Detection: ON' : 
+                    '📹 Camera: ON - Detection: OFF';
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('framesSent').textContent = framesSent;
+            document.getElementById('facesDetected').textContent = facesDetected;
+            document.getElementById('currentFPS').textContent = currentFPS;
+        }
+
+        // =====================================================
+        // NETWORK PING MONITORING
+        // =====================================================
+        function startPingMonitoring() {
+            setInterval(() => {
+                const start = Date.now();
+                socket.emit('ping', { timestamp: start });
+                
+                socket.once('pong', (data) => {
+                    const ping = Date.now() - data.timestamp;
+                    document.getElementById('networkPing').textContent = ping + 'ms';
+                });
+            }, 2000);
+        }
+
+        // Start ping monitoring after connection
+        socket.on('connect', function() {
+            setTimeout(startPingMonitoring, 1000);
+        });
+
+        // =====================================================
+        // ERROR HANDLING & RECOVERY
+        // =====================================================
+        window.addEventListener('beforeunload', function() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+
+        // Auto-reconnect on visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible' && !socket.connected) {
+                console.log('🔄 Page visible, attempting reconnect...');
+                socket.connect();
+            }
+        });
+
+        // Handle orientation change
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                if (videoElement && overlayCanvas) {
+                    overlayCanvas.width = videoElement.videoWidth;
+                    overlayCanvas.height = videoElement.videoHeight;
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

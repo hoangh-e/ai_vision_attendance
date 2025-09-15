@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🖥️ BHK Tech - Desktop Monitoring</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .nav-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tab-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .connection-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .connection-indicator.connected { background-color: #2ecc71; }
+        .connection-indicator.disconnected { background-color: #e74c3c; }
+        .detection-card {
+            border-left: 4px solid #3498db;
+            margin-bottom: 10px;
+        }
+        .detection-card.employee { border-left-color: #2ecc71; }
+        .detection-card.stranger { border-left-color: #e74c3c; }
+        .mobile-viewer {
+            background: #000;
+            border-radius: 10px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center my-4">🖥️ BHK Tech - Hệ Thống Điểm Danh</h1>
+                
+                <!-- Connection Status -->
+                <div class="alert alert-info text-center" id="connectionAlert">
+                    <span class="connection-indicator disconnected" id="connectionIndicator"></span>
+                    <span id="connectionText">Đang kết nối tới server...</span>
+                </div>
+            </div>
+        </div>
+        
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="monitor-tab" data-bs-toggle="tab" data-bs-target="#monitor" type="button" role="tab">
+                    📱 Monitor Mobile
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="management-tab" data-bs-toggle="tab" data-bs-target="#management" type="button" role="tab">
+                    👥 Quản lý nhân viên
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="capture-tab" data-bs-toggle="tab" data-bs-target="#capture" type="button" role="tab">
+                    📷 Chụp ảnh từ laptop
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabContent">
+            <!-- Tab 1: Mobile Monitoring -->
+            <div class="tab-pane fade show active" id="monitor" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3>📱 Mobile Stream Viewer</h3>
+                            <div>
+                                <button id="toggleDetectionBtn" class="btn btn-primary">🔍 Bật Face Detection</button>
+                                <button id="refreshStatsBtn" class="btn btn-outline-secondary">🔄 Refresh</button>
+                            </div>
+                        </div>
+                        
+                        <div class="mobile-viewer" id="mobileViewer">
+                            <div class="text-center">
+                                <h4>📱 Chờ kết nối từ Mobile</h4>
+                                <p>Truy cập <strong>http://[YOUR_IP]:5000/mobile</strong> trên điện thoại</p>
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        💡 Lấy IP máy tính: <code>ipconfig</code> (Windows) hoặc <code>ifconfig</code> (Mac/Linux)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Live Stats -->
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <h5>📊 Frames</h5>
+                                    <h2 id="totalFrames">0</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <h5>👤 Detections</h5>
+                                    <h2 id="totalDetections">0</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <h5>⚡ FPS</h5>
+                                    <h2 id="currentFPS">0</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <h5>📱 Clients</h5>
+                                    <h2 id="connectedClients">0</h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <h3>🔍 Detection Results</h3>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="detectionToggle">
+                                    <label class="form-check-label" for="detectionToggle">
+                                        Face Detection Active
+                                    </label>
+                                </div>
+                                <div id="detectionResults">
+                                    <p class="text-muted">Chưa có kết quả phát hiện...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h4 class="mt-4">📱 Connected Devices</h4>
+                        <div id="connectedDevices" class="card">
+                            <div class="card-body">
+                                <p class="text-muted">Chưa có thiết bị kết nối...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Employee Management (Same as before but cleaner) -->
+            <div class="tab-pane fade" id="management" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h3>👤 Thêm nhân viên mới</h3>
+                        <form id="employeeForm" class="card p-3">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Họ tên *</label>
+                                <input type="text" class="form-control" id="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="employee_code" class="form-label">Mã nhân viên *</label>
+                                <input type="text" class="form-control" id="employee_code" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="department" class="form-label">Phòng ban</label>
+                                <input type="text" class="form-control" id="department">
+                            </div>
+                            <div class="mb-3">
+                                <label for="position" class="form-label">Chức vụ</label>
+                                <input type="text" class="form-control" id="position">
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email">
+                            </div>
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Số điện thoại</label>
+                                <input type="tel" class="form-control" id="phone">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">➕ Thêm nhân viên</button>
+                        </form>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <h3>📋 Danh sách nhân viên</h3>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="employeeTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Mã NV</th>
+                                        <th>Họ tên</th>
+                                        <th>Phòng ban</th>
+                                        <th>Số ảnh</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal quản lý ảnh -->
+                <div class="modal fade" id="imageModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">📸 Quản lý ảnh nhân viên</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="imageUpload" class="form-label">📤 Tải ảnh lên</label>
+                                    <input type="file" class="form-control" id="imageUpload" accept="image/*" multiple>
+                                    <div class="form-text">Tối đa 10 ảnh cho mỗi nhân viên</div>
+                                </div>
+                                <div id="imageGallery" class="row"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Laptop Capture -->
+            <div class="tab-pane fade" id="capture" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>📷 Chụp ảnh từ Laptop</h3>
+                        <div class="card p-3">
+                            <div class="mb-3">
+                                <label for="captureEmployeeSelect" class="form-label">Chọn nhân viên</label>
+                                <select id="captureEmployeeSelect" class="form-select">
+                                    <option value="">-- Chọn nhân viên --</option>
+                                </select>
+                            </div>
+                            
+                            <div id="captureSection" style="display: none;">
+                                <h5>🎥 Camera laptop</h5>
+                                <video id="laptopVideo" width="100%" height="300" autoplay style="border: 1px solid #ccc; border-radius: 8px;"></video>
+                                <div class="text-center mt-3">
+                                    <button id="captureBtn" class="btn btn-primary btn-lg">📸 Chụp ảnh</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div id="capturePreview" style="display: none;">
+                            <h4>🖼️ Ảnh đã chụp</h4>
+                            <div class="card">
+                                <canvas id="captureCanvas" width="100%" height="300" style="border-radius: 8px;"></canvas>
+                                <div class="card-body text-center">
+                                    <button id="saveCaptureBtn" class="btn btn-success">💾 Lưu ảnh</button>
+                                    <button id="retakeBtn" class="btn btn-secondary">🔄 Chụp lại</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="captureStatus" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // =====================================================
+        // GLOBAL VARIABLES & INITIALIZATION
+        // =====================================================
+        let socket;
+        let currentEmployeeId = null;
+        let laptopStream = null;
+        let detectionActive = false;
+        let stats = {
+            totalFrames: 0,
+            totalDetections: 0,
+            currentFPS: 0,
+            connectedClients: 0
+        };
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            connectToServer();
+            loadEmployees();
+            setupEventListeners();
+        });
+
+        // =====================================================
+        // SOCKET.IO CONNECTION & EVENTS
+        // =====================================================
+        function connectToServer() {
+            socket = io();
+            
+            socket.on('connect', function() {
+                console.log('✅ Connected to server');
+                updateConnectionStatus(true);
+                
+                // Join desktop monitoring room
+                socket.emit('join_desktop_monitor');
+            });
+
+            socket.on('disconnect', function() {
+                console.log('❌ Disconnected from server');
+                updateConnectionStatus(false);
+            });
+
+            socket.on('desktop_monitor_joined', function(data) {
+                console.log('🖥️ Desktop monitor joined:', data);
+                updateStats(data.stats);
+                updateConnectedClients(data.connected_clients);
+                detectionActive = data.detection_active;
+                updateDetectionUI();
+            });
+
+            socket.on('mobile_connected', function(data) {
+                console.log('📱 Mobile connected:', data);
+                updateConnectedClients(data.client_count);
+                showMobileConnected();
+            });
+
+            socket.on('frame_processed', function(data) {
+                console.log('🎬 Frame processed:', data);
+                updateStats({
+                    totalFrames: data.total_frames,
+                    totalDetections: data.detections_count
+                });
+            });
+
+            socket.on('detection_status_changed', function(data) {
+                detectionActive = data.active;
+                updateDetectionUI();
+            });
+
+            socket.on('stats_update', function(data) {
+                updateStats(data.stats);
+                updateConnectedClients(data.connected_clients);
+            });
+        }
+
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connectionIndicator');
+            const text = document.getElementById('connectionText');
+            const alert = document.getElementById('connectionAlert');
+            
+            if (connected) {
+                indicator.className = 'connection-indicator connected';
+                text.textContent = 'Đã kết nối tới server';
+                alert.className = 'alert alert-success text-center';
+            } else {
+                indicator.className = 'connection-indicator disconnected';
+                text.textContent = 'Mất kết nối tới server';
+                alert.className = 'alert alert-danger text-center';
+            }
+        }
+
+        // =====================================================
+        // STATISTICS & UI UPDATES
+        // =====================================================
+        function updateStats(newStats) {
+            stats = { ...stats, ...newStats };
+            
+            document.getElementById('totalFrames').textContent = stats.totalFrames || 0;
+            document.getElementById('totalDetections').textContent = stats.totalDetections || 0;
+            document.getElementById('currentFPS').textContent = stats.fps || 0;
+        }
+
+        function updateConnectedClients(count) {
+            stats.connectedClients = count;
+            document.getElementById('connectedClients').textContent = count;
+            
+            const devicesDiv = document.getElementById('connectedDevices');
+            if (count > 0) {
+                devicesDiv.innerHTML = `
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <span class="connection-indicator connected"></span>
+                            <strong>${count} thiết bị đang kết nối</strong>
+                        </div>
+                        <small class="text-muted">Đang nhận video stream từ mobile</small>
+                    </div>
+                `;
+            } else {
+                devicesDiv.innerHTML = `
+                    <div class="card-body">
+                        <p class="text-muted">Chưa có thiết bị kết nối...</p>
+                    </div>
+                `;
+            }
+        }
+
+        function showMobileConnected() {
+            const viewer = document.getElementById('mobileViewer');
+            viewer.innerHTML = `
+                <div class="text-center">
+                    <h4 class="text-success">✅ Mobile đã kết nối!</h4>
+                    <p>Đang nhận video stream real-time</p>
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateDetectionUI() {
+            const toggle = document.getElementById('detectionToggle');
+            const btn = document.getElementById('toggleDetectionBtn');
+            
+            toggle.checked = detectionActive;
+            
+            if (detectionActive) {
+                btn.textContent = '⏸️ Tắt Face Detection';
+                btn.className = 'btn btn-warning';
+            } else {
+                btn.textContent = '🔍 Bật Face Detection';
+                btn.className = 'btn btn-primary';
+            }
+        }
+
+        // =====================================================
+        // EVENT LISTENERS
+        // =====================================================
+        function setupEventListeners() {
+            // Detection toggle
+            document.getElementById('detectionToggle').addEventListener('change', function() {
+                detectionActive = this.checked;
+                socket.emit('toggle_detection', { active: detectionActive });
+            });
+
+            document.getElementById('toggleDetectionBtn').addEventListener('click', function() {
+                detectionActive = !detectionActive;
+                socket.emit('toggle_detection', { active: detectionActive });
+            });
+
+            // Refresh stats
+            document.getElementById('refreshStatsBtn').addEventListener('click', function() {
+                socket.emit('get_stats');
+            });
+
+            // Employee form
+            document.getElementById('employeeForm').addEventListener('submit', handleEmployeeSubmit);
+            
+            // Image upload
+            document.getElementById('imageUpload').addEventListener('change', handleImageUpload);
+            
+            // Capture functions
+            document.getElementById('captureEmployeeSelect').addEventListener('change', handleCaptureEmployeeSelect);
+            document.getElementById('captureBtn').addEventListener('click', captureImage);
+            document.getElementById('saveCaptureBtn').addEventListener('click', saveCapturedImage);
+            document.getElementById('retakeBtn').addEventListener('click', retakeImage);
+        }
+
+        // =====================================================
+        // EMPLOYEE MANAGEMENT FUNCTIONS
+        // =====================================================
+        function loadEmployees() {
+            fetch('/api/employees')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        populateEmployeeTable(data.data);
+                        populateEmployeeSelect(data.data);
+                    }
+                });
+        }
+
+        function populateEmployeeTable(employees) {
+            const tbody = document.querySelector('#employeeTable tbody');
+            tbody.innerHTML = '';
+            
+            employees.forEach(emp => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${emp.employee_code}</strong></td>
+                    <td>${emp.name}</td>
+                    <td>${emp.department || 'N/A'}</td>
+                    <td>
+                        <span class="badge ${emp.image_count >= 10 ? 'bg-success' : 'bg-warning'}">${emp.image_count}/10</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="manageImages(${emp.id}, '${emp.name}')">📸 Quản lý ảnh</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${emp.id})">🗑️ Xóa</button>
+                    </td>
+                `;
+            });
+        }
+
+        function populateEmployeeSelect(employees) {
+            const select = document.getElementById('captureEmployeeSelect');
+            select.innerHTML = '<option value="">-- Chọn nhân viên --</option>';
+            
+            employees.forEach(emp => {
+                if (emp.image_count < 10) {
+                    const option = document.createElement('option');
+                    option.value = emp.id;
+                    option.textContent = `${emp.name} (${emp.image_count}/10 ảnh)`;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        function handleEmployeeSubmit(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('name').value,
+                employee_code: document.getElementById('employee_code').value,
+                department: document.getElementById('department').value,
+                position: document.getElementById('position').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value
+            };
+            
+            fetch('/api/employees', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Thêm nhân viên thành công!');
+                    e.target.reset();
+                    loadEmployees();
+                } else {
+                    alert('❌ Lỗi: ' + data.error);
+                }
+            });
+        }
+
+        // =====================================================
+        // IMAGE MANAGEMENT
+        // =====================================================
+        function manageImages(employeeId, employeeName) {
+            currentEmployeeId = employeeId;
+            document.querySelector('#imageModal .modal-title').textContent = `📸 Quản lý ảnh - ${employeeName}`;
+            
+            loadEmployeeImages(employeeId);
+            
+            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+            modal.show();
+        }
+
+        function loadEmployeeImages(employeeId) {
+            // This would be implemented with the actual API endpoint
+            fetch(`/api/employees/${employeeId}/vectors`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayImages(data.data);
+                    }
+                });
+        }
+
+        function displayImages(images) {
+            const gallery = document.getElementById('imageGallery');
+            gallery.innerHTML = '';
+            
+            images.forEach(img => {
+                const col = document.createElement('div');
+                col.className = 'col-md-3 mb-3';
+                col.innerHTML = `
+                    <div class="card">
+                        <img src="/${img.image_path}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                        <div class="card-body p-2">
+                            <button class="btn btn-sm btn-danger w-100" onclick="deleteImage(${img.id})">🗑️ Xóa</button>
+                        </div>
+                    </div>
+                `;
+                gallery.appendChild(col);
+            });
+        }
+
+        function handleImageUpload(e) {
+            const files = e.target.files;
+            for (let file of files) {
+                uploadImage(file);
+            }
+        }
+
+        function uploadImage(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            fetch(`/api/employees/${currentEmployeeId}/upload`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadEmployeeImages(currentEmployeeId);
+                    loadEmployees();
+                } else {
+                    alert('❌ Lỗi: ' + data.error);
+                }
+            });
+        }
+
+        // =====================================================
+        // LAPTOP CAPTURE FUNCTIONS
+        // =====================================================
+        function handleCaptureEmployeeSelect() {
+            const employeeId = this.value;
+            if (employeeId) {
+                currentEmployeeId = employeeId;
+                startLaptopCamera();
+                document.getElementById('captureSection').style.display = 'block';
+            } else {
+                stopLaptopCamera();
+                document.getElementById('captureSection').style.display = 'none';
+            }
+        }
+
+        function startLaptopCamera() {
+            navigator.mediaDevices.getUserMedia({video: true})
+                .then(stream => {
+                    laptopStream = stream;
+                    document.getElementById('laptopVideo').srcObject = stream;
+                })
+                .catch(err => {
+                    alert('❌ Không thể truy cập camera: ' + err.message);
+                });
+        }
+
+        function stopLaptopCamera() {
+            if (laptopStream) {
+                laptopStream.getTracks().forEach(track => track.stop());
+                laptopStream = null;
+            }
+        }
+
+        function captureImage() {
+            const video = document.getElementById('laptopVideo');
+            const canvas = document.getElementById('captureCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            document.getElementById('capturePreview').style.display = 'block';
+        }
+
+        function saveCapturedImage() {
+            const canvas = document.getElementById('captureCanvas');
+            const imageData = canvas.toDataURL('image/jpeg');
+            
+            // Convert to blob and upload
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'capture.jpg');
+                
+                fetch(`/api/employees/${currentEmployeeId}/upload`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const status = document.getElementById('captureStatus');
+                    if (data.success) {
+                        status.innerHTML = `<div class="alert alert-success">✅ Lưu ảnh thành công!</div>`;
+                        loadEmployees();
+                        document.getElementById('capturePreview').style.display = 'none';
+                    } else {
+                        status.innerHTML = `<div class="alert alert-danger">❌ Lỗi: ${data.error}</div>`;
+                    }
+                });
+            }, 'image/jpeg');
+        }
+
+        function retakeImage() {
+            document.getElementById('capturePreview').style.display = 'none';
+        }
+
+        // Global functions for onclick handlers
+        window.manageImages = manageImages;
+        window.deleteEmployee = function(employeeId) {
+            if (confirm('❓ Bạn có chắc muốn xóa nhân viên này?')) {
+                fetch(`/api/employees/${employeeId}`, {method: 'DELETE'})
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadEmployees();
+                        }
+                    });
+            }
+        };
+        window.deleteImage = function(vectorId) {
+            if (confirm('❓ Bạn có chắc muốn xóa ảnh này?')) {
+                fetch(`/api/vectors/${vectorId}`, {method: 'DELETE'})
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadEmployeeImages(currentEmployeeId);
+                            loadEmployees();
+                        }
+                    });
+            }
+        };
+    </script>
+</body>
+</html>
