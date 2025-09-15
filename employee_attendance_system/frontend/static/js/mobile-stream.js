@@ -53,6 +53,11 @@ class MobileVideoStreamer {
             console.log('✅ Connected to server');
             this.updateConnectionStatus(true);
             
+            // Show notification
+            if (window.showNotification) {
+                window.showNotification('Kết nối server thành công! 🎉', 'success');
+            }
+            
             // Register as mobile client
             this.socket.emit('register_mobile_client', {
                 type: 'mobile_video_streamer',
@@ -66,14 +71,33 @@ class MobileVideoStreamer {
             console.log('❌ Disconnected from server');
             this.updateConnectionStatus(false);
             this.stopStreaming();
+            
+            // Show notification
+            if (window.showNotification) {
+                window.showNotification('Mất kết nối server 😞', 'error');
+            }
         });
         
         this.socket.on('detection_result', (data) => {
             this.displayDetectionResults(data);
+            
+            // Show notification for face detection
+            if (data.faces && data.faces.length > 0) {
+                if (window.showNotification) {
+                    window.showNotification(`Phát hiện ${data.faces.length} khuôn mặt! 👤`, 'success');
+                }
+            }
         });
         
         this.socket.on('server_stats', (data) => {
             this.updateServerStats(data);
+        });
+
+        this.socket.on('error', (error) => {
+            console.error('Socket error:', error);
+            if (window.showNotification) {
+                window.showNotification('Lỗi kết nối! Vui lòng thử lại', 'error');
+            }
         });
     }
     
@@ -120,6 +144,11 @@ class MobileVideoStreamer {
         
         console.log(`🎥 Started streaming at ${this.frameRate} FPS`);
         this.updateUI('streaming');
+        
+        // Show notification
+        if (window.showNotification) {
+            window.showNotification(`Bắt đầu stream video ${this.frameRate}FPS! 📹`, 'success');
+        }
     }
     
     stopStreaming() {
@@ -134,6 +163,11 @@ class MobileVideoStreamer {
         
         console.log('⏹️ Stopped streaming');
         this.updateUI('stopped');
+        
+        // Show notification
+        if (window.showNotification) {
+            window.showNotification('Stream đã dừng! ⏹️', 'warning');
+        }
     }
     
     captureAndSendFrame() {
@@ -221,6 +255,12 @@ class MobileVideoStreamer {
             const currentTrack = this.stream.getVideoTracks()[0];
             const settings = currentTrack.getSettings();
             const newFacingMode = settings.facingMode === 'user' ? 'environment' : 'user';
+            const cameraName = newFacingMode === 'user' ? 'trước' : 'sau';
+            
+            // Show switching notification
+            if (window.showNotification) {
+                window.showNotification(`Đang chuyển camera ${cameraName}...`, 'warning');
+            }
             
             // Stop current stream
             this.stream.getTracks().forEach(track => track.stop());
@@ -242,9 +282,16 @@ class MobileVideoStreamer {
             
             console.log(`📱 Switched to ${newFacingMode} camera`);
             
+            // Show success notification
+            if (window.showNotification) {
+                window.showNotification(`Đã chuyển sang camera ${cameraName}! 📷`, 'success');
+            }
+            
         } catch (error) {
             console.error('❌ Camera switch failed:', error);
-            alert('Không thể chuyển camera');
+            if (window.showNotification) {
+                window.showNotification('Không thể chuyển camera! Thử lại sau', 'error');
+            }
         }
     }
     

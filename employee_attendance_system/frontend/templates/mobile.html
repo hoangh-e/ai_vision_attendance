@@ -32,9 +32,12 @@
         }
 
         .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
-            padding: 15px;
-            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 15px;
             backdrop-filter: blur(10px);
         }
@@ -77,6 +80,168 @@
         @keyframes pulse-red {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(46, 204, 113, 0.95);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            backdrop-filter: blur(15px);
+            z-index: 3000;
+            transition: transform 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .notification-toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .notification-toast.error {
+            background: rgba(231, 76, 60, 0.95);
+        }
+
+        .notification-toast.warning {
+            background: rgba(243, 156, 18, 0.95);
+        }
+
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: -350px;
+            width: 320px;
+            height: 100vh;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            transition: right 0.3s ease;
+            z-index: 2000;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-panel.open {
+            right: 0;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-group {
+            margin-bottom: 25px;
+        }
+
+        .settings-group h4 {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .setting-label {
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #3498db;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .stats-panel {
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 250px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 900;
+            display: none;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .stats-label {
+            color: #bbb;
+        }
+
+        .stats-value {
+            font-weight: bold;
         }
 
         .video-container {
@@ -326,10 +491,20 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>📱 BHK Tech - Điểm Danh</h1>
-            <div id="connectionStatus" class="connection-status disconnected">
-                🔴 Đang kết nối...
+            <h1>📱 BHK Tech - Điểm Danh AI</h1>
+            <div class="header-controls">
+                <div id="connectionStatus" class="connection-status disconnected">
+                    🔴 Đang kết nối...
+                </div>
+                <button id="settingsBtn" class="btn btn-secondary" style="padding: 8px 12px; min-width: auto;">
+                    ⚙️
+                </button>
             </div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="notificationToast" class="notification-toast">
+            <span id="notificationMessage"></span>
         </div>
 
         <!-- Error Message (Hidden by default) -->
@@ -414,11 +589,254 @@
         </div>
     </div>
 
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel">
+        <div class="settings-header">
+            <h3 style="color: white; margin: 0;">⚙️ Cài Đặt</h3>
+            <button id="closeSettingsBtn" class="btn btn-secondary" style="padding: 8px 12px; min-width: auto;">
+                ✕
+            </button>
+        </div>
+
+        <div class="settings-group">
+            <h4>📹 Video Settings</h4>
+            <div class="setting-item">
+                <span class="setting-label">Auto Face Detection</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoDetectionToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">High Quality Mode</span>
+                <label class="switch">
+                    <input type="checkbox" id="highQualityToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Full Screen Mode</span>
+                <label class="switch">
+                    <input type="checkbox" id="fullScreenToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h4>🔧 Performance</h4>
+            <div class="setting-item">
+                <span class="setting-label">Auto Optimization</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoOptimizeToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Stats Display</span>
+                <label class="switch">
+                    <input type="checkbox" id="statsToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h4>🔊 Notifications</h4>
+            <div class="setting-item">
+                <span class="setting-label">Sound Alerts</span>
+                <label class="switch">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Vibration</span>
+                <label class="switch">
+                    <input type="checkbox" id="vibrationToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h4>ℹ️ Information</h4>
+            <div style="color: #ccc; font-size: 12px; line-height: 1.4;">
+                <p><strong>Version:</strong> 2.0.0</p>
+                <p><strong>Build:</strong> 2024.01.15</p>
+                <p><strong>Platform:</strong> Mobile PWA</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Panel (Initially Hidden) -->
+    <div id="statsPanel" class="stats-panel">
+        <div class="stats-item">
+            <span class="stats-label">Connection</span>
+            <span class="stats-value" id="connectionStats">Good</span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">Bandwidth</span>
+            <span class="stats-value" id="bandwidthStats">Auto</span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">Resolution</span>
+            <span class="stats-value" id="resolutionStats">HD</span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">Frame Rate</span>
+            <span class="stats-value" id="frameRateStats">30 FPS</span>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='js/mobile-stream.js') }}"></script>
     
     <script>
+        // Enhanced mobile functionality with settings and notifications
+        class MobileEnhancer {
+            constructor() {
+                this.settings = {
+                    autoDetection: true,
+                    highQuality: false,
+                    fullScreen: false,
+                    autoOptimize: true,
+                    statsDisplay: true,
+                    soundAlerts: true,
+                    vibration: true
+                };
+                this.init();
+            }
+
+            init() {
+                this.setupSettingsPanel();
+                this.setupNotifications();
+                this.loadSettings();
+                this.bindEvents();
+            }
+
+            setupSettingsPanel() {
+                const settingsBtn = document.getElementById('settingsBtn');
+                const settingsPanel = document.getElementById('settingsPanel');
+                const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+
+                settingsBtn?.addEventListener('click', () => {
+                    settingsPanel?.classList.add('open');
+                });
+
+                closeSettingsBtn?.addEventListener('click', () => {
+                    settingsPanel?.classList.remove('open');
+                });
+
+                // Close on outside click
+                document.addEventListener('click', (e) => {
+                    if (!settingsPanel?.contains(e.target) && !settingsBtn?.contains(e.target)) {
+                        settingsPanel?.classList.remove('open');
+                    }
+                });
+            }
+
+            setupNotifications() {
+                window.showNotification = (message, type = 'success') => {
+                    const toast = document.getElementById('notificationToast');
+                    const messageEl = document.getElementById('notificationMessage');
+                    
+                    if (toast && messageEl) {
+                        messageEl.textContent = message;
+                        toast.className = `notification-toast ${type}`;
+                        toast.classList.add('show');
+                        
+                        setTimeout(() => {
+                            toast.classList.remove('show');
+                        }, 3000);
+
+                        // Vibration feedback if enabled
+                        if (this.settings.vibration && 'vibrate' in navigator) {
+                            navigator.vibrate(100);
+                        }
+                    }
+                };
+            }
+
+            loadSettings() {
+                const savedSettings = localStorage.getItem('mobileSettings');
+                if (savedSettings) {
+                    this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+                }
+                this.applySettings();
+            }
+
+            saveSettings() {
+                localStorage.setItem('mobileSettings', JSON.stringify(this.settings));
+            }
+
+            applySettings() {
+                // Apply settings to UI
+                Object.keys(this.settings).forEach(key => {
+                    const toggle = document.getElementById(`${key}Toggle`);
+                    if (toggle) {
+                        toggle.checked = this.settings[key];
+                    }
+                });
+
+                // Apply visual settings
+                if (this.settings.statsDisplay) {
+                    document.querySelector('.stats-section')?.style.setProperty('display', 'block');
+                } else {
+                    document.querySelector('.stats-section')?.style.setProperty('display', 'none');
+                }
+            }
+
+            bindEvents() {
+                // Settings toggles
+                Object.keys(this.settings).forEach(key => {
+                    const toggle = document.getElementById(`${key}Toggle`);
+                    toggle?.addEventListener('change', (e) => {
+                        this.settings[key] = e.target.checked;
+                        this.saveSettings();
+                        this.handleSettingChange(key, e.target.checked);
+                    });
+                });
+            }
+
+            handleSettingChange(setting, value) {
+                switch (setting) {
+                    case 'fullScreen':
+                        if (value) {
+                            document.documentElement.requestFullscreen?.();
+                        } else {
+                            document.exitFullscreen?.();
+                        }
+                        break;
+                    
+                    case 'statsDisplay':
+                        const statsSection = document.querySelector('.stats-section');
+                        if (statsSection) {
+                            statsSection.style.display = value ? 'block' : 'none';
+                        }
+                        break;
+
+                    case 'highQuality':
+                        if (window.mobileStreamer) {
+                            window.mobileStreamer.quality = value ? 1.0 : 0.7;
+                            showNotification(`Quality ${value ? 'increased' : 'optimized'} for performance`);
+                        }
+                        break;
+
+                    case 'autoDetection':
+                        if (window.mobileStreamer) {
+                            window.mobileStreamer.autoDetection = value;
+                            showNotification(`Face detection ${value ? 'enabled' : 'disabled'}`);
+                        }
+                        break;
+                }
+            }
+        }
+
+        // Initialize enhanced mobile functionality
+        const mobileEnhancer = new MobileEnhancer();
+
         // Additional mobile-specific functionality
         document.addEventListener('DOMContentLoaded', () => {
             // Quality slider functionality
