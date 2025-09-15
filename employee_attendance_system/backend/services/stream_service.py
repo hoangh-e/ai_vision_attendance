@@ -1,436 +1,603 @@
-# backend/services/stream_service.py
+# 🚀 BACKEND REALTIME STREAM SERVICE
+# File: backend/services/stream_service.py
+
+import cv2
+import base64
+import numpy as np
 import time
 import threading
-from collections import defaultdict
-import cv2
-import numpy as np
-import base64
+import queue
+import uuid
 import logging
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
+from collections import defaultdict
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@dataclass
+class StreamClient:
+    """Client connection information"""
+    client_id: str
+    socket_id: str
+    client_type: str  # 'mobile', 'desktop'
+    user_agent: str
+    screen_size: str
+    connected_at: float
+    last_frame_time: float
+    frame_count: int
+    is_active: bool
+
+@dataclass
+class FrameData:
+    """Video frame data structure"""
+    client_id: str
+    frame: np.ndarray
+    timestamp: float
+    resolution: str
+    processing_time: float = 0.0
+
 class StreamService:
-    """
-    Real-time video streaming service
-    Handles mobile video frames and coordinates with face recognition
-    """
+    """Realtime video streaming service"""
     
-    def __init__(self, socketio):
+    def __init__(self, socketio, face_service=None):
         self.socketio = socketio
-        self.clients = {}
+        self.face_service = face_service
+        
+        # Client management
+        self.clients: Dict[str, StreamClient] = {}
+        self.client_lock = threading.Lock()
+        
+        # Frame processing
+        self.frame_queue = queue.Queue(maxsize=10)
+        self.processing_thread = None
+        self.is_processing = False
+        
+        # Detection settings
+        self.detection_active = False
+        self.detection_lock = threading.Lock()
+        
+        # Statistics
         self.stats = {
-            'total_frames': 0,
+            'total_frames_received': 0,
+            'total_frames_processed': 0,
             'total_detections': 0,
+            'average_processing_time': 0.0,
+            'fps': 0.0,
             'start_time': time.time(),
             'last_fps_update': time.time(),
-            'fps': 0,
-            'frame_count_for_fps': 0
-        }
-        self.settings = {
-            'max_fps': 15,
-            'max_clients': 10,
-            'frame_quality': 0.7,
-            'detection_enabled': True
+            'frames_in_last_second': 0
         }
         
-        logger.info("StreamService initialized")
-    
-    def register_client(self, client_id, client_info):
-        """Register a new mobile client"""
-        self.clients[client_id] = {
-            'info': client_info,
-            'connected_at': time.time(),
-            'frames_received': 0,
-            'last_frame_time': 0,
-            'fps': 0
-        }
+        # Start background processing
+        self.start_processing()
         
-        logger.info(f"📱 Client registered: {client_id[:8]}...")
-        return len(self.clients)
+        logger.info("✅ Stream service initialized")
     
-    def unregister_client(self, client_id):
-        """Unregister a mobile client"""
-        if client_id in self.clients:
-            del self.clients[client_id]
-            logger.info(f"📱 Client unregistered: {client_id[:8]}...")
+    def start_processing(self):
+        """Start background frame processing thread"""
+        if self.processing_thread and self.processing_thread.is_alive():
+            return
         
-        return len(self.clients)
+        self.is_processing = True
+        self.processing_thread = threading.Thread(
+            target=self._processing_loop, 
+            daemon=True,
+            name="StreamProcessor"
+        )
+        self.processing_thread.start()
+        logger.info("🎬 Started frame processing thread")
     
-    def process_video_frame(self, client_id, frame_data, face_service):
-        """
-        Process incoming video frame from mobile client
-        Returns detection results for real-time display
-        """
+    def stop_processing(self):
+        """Stop background processing"""
+        self.is_processing = False
+        if self.processing_thread:
+            self.processing_thread.join(timeout=5.0)
+        logger.info("⏹️ Stopped frame processing")
+    
+    def _processing_loop(self):
+        """Background frame processing loop"""
+        while self.is_processing:
+            try:
+                # Get frame from queue (with timeout)
+                frame_data = self.frame_queue.get(timeout=1.0)
+                
+                # Process frame
+                self._process_frame(frame_data)
+                
+                # Mark task as done
+                self.frame_queue.task_done()
+                
+            except queue.Empty:
+                continue
+            except Exception as e:
+                logger.error(f"❌ Frame processing error: {e}")
+    
+    def register_client(self, client_id: str, socket_id: str, client_info: Dict[str, Any]) -> bool:
+        """Register new streaming client"""
         try:
+            with self.client_lock:
+                client = StreamClient(
+                    client_id=client_id,
+                    socket_id=socket_id,
+                    client_type=client_info.get('type', 'unknown'),
+                    user_agent=client_info.get('user_agent', ''),
+                    screen_size=client_info.get('screen_size', ''),
+                    connected_at=time.time(),
+                    last_frame_time=0.0,
+                    frame_count=0,
+                    is_active=True
+                )
+                
+                self.clients[client_id] = client
+                
+            logger.info(f"📱 Registered client: {client_id} ({client.client_type})")
+            
+            # Notify client
+            if self.socketio:
+                self.socketio.emit('mobile_registered', {
+                    'client_id': client_id,
+                    'detection_active': self.detection_active,
+                    'server_time': time.time()
+                }, to=socket_id)
+            
+            # Update all clients with stats
+            self._broadcast_stats()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Client registration failed: {e}")
+            return False
+    
+    def unregister_client(self, client_id: str) -> bool:
+        """Unregister client"""
+        try:
+            with self.client_lock:
+                if client_id in self.clients:
+                    client = self.clients.pop(client_id)
+                    logger.info(f"📱 Unregistered client: {client_id}")
+                    
+                    # Update stats
+                    self._broadcast_stats()
+                    return True
+                    
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Client unregistration failed: {e}")
+            return False
+    
+    def process_video_frame(self, client_id: str, frame_data: str, metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Process incoming video frame from mobile"""
+        start_time = time.time()
+        
+        try:
+            # Validate client
             if client_id not in self.clients:
                 return {'success': False, 'error': 'Client not registered'}
             
-            # Update client stats
-            client = self.clients[client_id]
-            client['frames_received'] += 1
-            client['last_frame_time'] = time.time()
+            # Decode base64 frame
+            try:
+                # Remove data URL prefix if present
+                if ',' in frame_data:
+                    frame_data = frame_data.split(',')[1]
+                
+                # Decode base64 to bytes
+                img_bytes = base64.b64decode(frame_data)
+                
+                # Convert to numpy array
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                
+                # Decode image
+                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                
+                if frame is None:
+                    return {'success': False, 'error': 'Failed to decode frame'}
+                
+            except Exception as e:
+                return {'success': False, 'error': f'Frame decode error: {str(e)}'}
             
-            # Decode frame
-            frame = self._decode_frame(frame_data)
-            if frame is None:
-                return {'success': False, 'error': 'Could not decode frame'}
+            # Update client stats
+            with self.client_lock:
+                client = self.clients[client_id]
+                client.last_frame_time = time.time()
+                client.frame_count += 1
             
             # Update global stats
-            self.stats['total_frames'] += 1
-            self.stats['frame_count_for_fps'] += 1
+            self.stats['total_frames_received'] += 1
+            self._update_fps()
             
-            # Face detection (if enabled)
-            detections = []
-            if self.settings['detection_enabled']:
-                detections = face_service.recognize_face(frame)
-                self.stats['total_detections'] += len(detections)
+            # Create frame data object
+            frame_obj = FrameData(
+                client_id=client_id,
+                frame=frame,
+                timestamp=time.time(),
+                resolution=f"{frame.shape[1]}x{frame.shape[0]}"
+            )
             
-            # Update FPS calculation
-            self.update_fps_stats()
+            # Add to processing queue if detection is active
+            if self.detection_active and not self.frame_queue.full():
+                try:
+                    self.frame_queue.put_nowait(frame_obj)
+                except queue.Full:
+                    logger.warning("⚠️ Frame queue full, dropping frame")
             
-            # Prepare response
-            result = {
+            # Broadcast frame to desktop monitors
+            self._broadcast_frame_to_desktop(client_id, frame_data, metadata)
+            
+            processing_time = time.time() - start_time
+            
+            return {
                 'success': True,
-                'timestamp': time.time(),
-                'detections': detections,
-                'client_stats': {
-                    'frames_received': client['frames_received'],
-                    'fps': self._calculate_client_fps(client_id)
-                },
-                'detection_enabled': self.settings['detection_enabled']
+                'processing_time': processing_time,
+                'frame_resolution': frame_obj.resolution,
+                'detection_active': self.detection_active,
+                'queue_size': self.frame_queue.qsize()
             }
             
-            return result
-            
         except Exception as e:
-            logger.error(f"Frame processing error for {client_id[:8]}...: {e}")
+            logger.error(f"❌ Frame processing error: {e}")
             return {'success': False, 'error': str(e)}
     
-    def _decode_frame(self, frame_data):
-        """Decode base64 video frame"""
+    def _process_frame(self, frame_data: FrameData):
+        """Process frame for face detection"""
+        if not self.face_service:
+            return
+        
+        start_time = time.time()
+        
         try:
-            # Remove data URL prefix if present
-            if ',' in frame_data:
-                frame_data = frame_data.split(',')[1]
+            # Perform face detection/recognition
+            detection_results = self.face_service.detect_and_recognize_faces(frame_data.frame)
             
-            # Decode base64
-            img_bytes = base64.b64decode(frame_data)
-            nparr = np.frombuffer(img_bytes, np.uint8)
-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            processing_time = time.time() - start_time
+            frame_data.processing_time = processing_time
             
-            return frame
+            # Update stats
+            self.stats['total_frames_processed'] += 1
+            self.stats['total_detections'] += len(detection_results)
+            
+            # Update average processing time
+            total_processed = self.stats['total_frames_processed']
+            self.stats['average_processing_time'] = (
+                (self.stats['average_processing_time'] * (total_processed - 1) + processing_time) 
+                / total_processed
+            )
+            
+            # Send results back to mobile client
+            self._send_detection_results(frame_data.client_id, detection_results, processing_time)
+            
+            # Broadcast to desktop monitors
+            self._broadcast_detection_to_desktop(frame_data.client_id, detection_results)
             
         except Exception as e:
-            logger.error(f"Frame decode error: {e}")
-            return None
+            logger.error(f"❌ Face detection error: {e}")
     
-    def _calculate_client_fps(self, client_id):
-        """Calculate FPS for specific client"""
-        if client_id not in self.clients:
-            return 0
-        
-        client = self.clients[client_id]
-        time_diff = time.time() - client['connected_at']
-        
-        if time_diff > 0:
-            return round(client['frames_received'] / time_diff, 1)
-        
-        return 0
+    def _send_detection_results(self, client_id: str, results: List[Dict], processing_time: float):
+        """Send detection results to mobile client"""
+        try:
+            if client_id not in self.clients:
+                return
+            
+            client = self.clients[client_id]
+            
+            # Format results for mobile display
+            formatted_faces = []
+            for result in results:
+                face_data = {
+                    'x': result.get('x', 0),
+                    'y': result.get('y', 0),
+                    'width': result.get('width', 0),
+                    'height': result.get('height', 0),
+                    'confidence': result.get('confidence', 0.0)
+                }
+                
+                # Add employee info if recognized
+                if result.get('employee'):
+                    face_data['employee'] = {
+                        'id': result['employee'].get('id'),
+                        'name': result['employee'].get('name'),
+                        'employee_code': result['employee'].get('employee_code'),
+                        'department': result['employee'].get('department')
+                    }
+                
+                formatted_faces.append(face_data)
+            
+            # Send to mobile
+            self.socketio.emit('detection_result', {
+                'success': True,
+                'faces': formatted_faces,
+                'processing_time': processing_time,
+                'timestamp': time.time()
+            }, to=client.socket_id)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send detection results: {e}")
     
-    def update_fps_stats(self):
-        """Update global FPS statistics"""
+    def _broadcast_frame_to_desktop(self, client_id: str, frame_data: str, metadata: Dict = None):
+        """Broadcast frame to desktop monitoring clients"""
+        try:
+            # Find desktop clients
+            desktop_clients = [
+                client for client in self.clients.values() 
+                if client.client_type == 'desktop' and client.is_active
+            ]
+            
+            if not desktop_clients:
+                return
+            
+            # Prepare frame data for desktop
+            frame_info = {
+                'client_id': client_id,
+                'frame_data': frame_data,
+                'timestamp': time.time(),
+                'metadata': metadata or {}
+            }
+            
+            # Broadcast to all desktop clients
+            for desktop_client in desktop_clients:
+                self.socketio.emit('mobile_frame_received', frame_info, to=desktop_client.socket_id)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to broadcast frame to desktop: {e}")
+    
+    def _broadcast_detection_to_desktop(self, client_id: str, detection_results: List[Dict]):
+        """Broadcast detection results to desktop clients"""
+        try:
+            desktop_clients = [
+                client for client in self.clients.values() 
+                if client.client_type == 'desktop' and client.is_active
+            ]
+            
+            if not desktop_clients:
+                return
+            
+            detection_info = {
+                'client_id': client_id,
+                'detections': detection_results,
+                'timestamp': time.time(),
+                'detection_count': len(detection_results)
+            }
+            
+            for desktop_client in desktop_clients:
+                self.socketio.emit('detection_broadcast', detection_info, to=desktop_client.socket_id)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to broadcast detection to desktop: {e}")
+    
+    def _update_fps(self):
+        """Update FPS calculation"""
         current_time = time.time()
-        time_diff = current_time - self.stats['last_fps_update']
+        self.stats['frames_in_last_second'] += 1
         
         # Update FPS every second
-        if time_diff >= 1.0:
-            self.stats['fps'] = round(self.stats['frame_count_for_fps'] / time_diff, 1)
+        if current_time - self.stats['last_fps_update'] >= 1.0:
+            self.stats['fps'] = self.stats['frames_in_last_second']
+            self.stats['frames_in_last_second'] = 0
             self.stats['last_fps_update'] = current_time
-            self.stats['frame_count_for_fps'] = 0
     
-    def get_stats(self):
+    def _broadcast_stats(self):
+        """Broadcast current statistics to all clients"""
+        try:
+            stats_data = self.get_current_stats()
+            
+            # Send to all connected clients
+            for client in self.clients.values():
+                if client.is_active:
+                    self.socketio.emit('server_stats', stats_data, to=client.socket_id)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to broadcast stats: {e}")
+    
+    def toggle_detection(self) -> bool:
+        """Toggle face detection on/off"""
+        with self.detection_lock:
+            self.detection_active = not self.detection_active
+            
+        logger.info(f"🔍 Detection {'enabled' if self.detection_active else 'disabled'}")
+        
+        # Notify all clients
+        for client in self.clients.values():
+            if client.is_active:
+                self.socketio.emit('detection_toggled', {
+                    'detection_active': self.detection_active,
+                    'timestamp': time.time()
+                }, to=client.socket_id)
+        
+        return self.detection_active
+    
+    def set_detection_active(self, active: bool) -> bool:
+        """Set detection state"""
+        with self.detection_lock:
+            self.detection_active = active
+            
+        logger.info(f"🔍 Detection set to {'enabled' if active else 'disabled'}")
+        
+        # Notify all clients
+        for client in self.clients.values():
+            if client.is_active:
+                self.socketio.emit('detection_toggled', {
+                    'detection_active': self.detection_active,
+                    'timestamp': time.time()
+                }, to=client.socket_id)
+        
+        return self.detection_active
+    
+    def get_current_stats(self) -> Dict[str, Any]:
         """Get current streaming statistics"""
-        uptime = time.time() - self.stats['start_time']
+        current_time = time.time()
+        uptime = current_time - self.stats['start_time']
+        
+        # Client statistics
+        client_stats = {
+            'total_clients': len(self.clients),
+            'mobile_clients': len([c for c in self.clients.values() if c.client_type == 'mobile']),
+            'desktop_clients': len([c for c in self.clients.values() if c.client_type == 'desktop']),
+            'active_clients': len([c for c in self.clients.values() if c.is_active])
+        }
+        
+        # Processing statistics
+        processing_stats = {
+            'total_frames_received': self.stats['total_frames_received'],
+            'total_frames_processed': self.stats['total_frames_processed'],
+            'total_detections': self.stats['total_detections'],
+            'average_processing_time': round(self.stats['average_processing_time'], 4),
+            'current_fps': self.stats['fps'],
+            'queue_size': self.frame_queue.qsize(),
+            'detection_active': self.detection_active
+        }
+        
+        # System statistics
+        system_stats = {
+            'uptime': round(uptime, 2),
+            'uptime_formatted': self._format_uptime(uptime),
+            'face_service_available': self.face_service is not None,
+            'processing_thread_alive': self.processing_thread and self.processing_thread.is_alive()
+        }
         
         return {
-            'total_frames': self.stats['total_frames'],
-            'total_detections': self.stats['total_detections'],
-            'fps': self.stats['fps'],
-            'connected_clients': len(self.clients),
-            'uptime_seconds': uptime,
-            'uptime_formatted': self._format_uptime(uptime),
-            'clients': {
-                client_id: {
-                    'frames_received': client['frames_received'],
-                    'fps': self._calculate_client_fps(client_id),
-                    'connected_duration': time.time() - client['connected_at']
-                }
-                for client_id, client in self.clients.items()
-            }
+            'clients': client_stats,
+            'processing': processing_stats,
+            'system': system_stats,
+            'timestamp': current_time
         }
     
-    def _format_uptime(self, seconds):
+    def get_client_info(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """Get specific client information"""
+        if client_id not in self.clients:
+            return None
+            
+        client = self.clients[client_id]
+        current_time = time.time()
+        
+        return {
+            'client_id': client.client_id,
+            'client_type': client.client_type,
+            'user_agent': client.user_agent,
+            'screen_size': client.screen_size,
+            'connected_at': client.connected_at,
+            'connection_duration': round(current_time - client.connected_at, 2),
+            'last_frame_time': client.last_frame_time,
+            'frame_count': client.frame_count,
+            'is_active': client.is_active,
+            'time_since_last_frame': round(current_time - client.last_frame_time, 2) if client.last_frame_time > 0 else 0
+        }
+    
+    def cleanup_inactive_clients(self, timeout_seconds: int = 300) -> int:
+        """Clean up inactive clients (5 minutes timeout by default)"""
+        current_time = time.time()
+        removed_count = 0
+        
+        with self.client_lock:
+            inactive_clients = []
+            
+            for client_id, client in self.clients.items():
+                # Check if client is inactive
+                if (current_time - client.last_frame_time > timeout_seconds and 
+                    client.last_frame_time > 0):
+                    inactive_clients.append(client_id)
+            
+            # Remove inactive clients
+            for client_id in inactive_clients:
+                client = self.clients.pop(client_id)
+                logger.info(f"🧹 Removed inactive client: {client_id}")
+                removed_count += 1
+        
+        if removed_count > 0:
+            self._broadcast_stats()
+        
+        return removed_count
+    
+    def force_disconnect_client(self, client_id: str, reason: str = "Admin disconnect") -> bool:
+        """Force disconnect a specific client"""
+        try:
+            if client_id not in self.clients:
+                return False
+            
+            client = self.clients[client_id]
+            
+            # Notify client
+            if self.socketio:
+                self.socketio.emit('force_disconnect', {
+                    'reason': reason,
+                    'timestamp': time.time()
+                }, to=client.socket_id)
+            
+            # Remove client
+            self.unregister_client(client_id)
+            
+            logger.info(f"✅ Force disconnected client {client_id}: {reason}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error force disconnecting client: {e}")
+            return False
+    
+    def _format_uptime(self, seconds: float) -> str:
         """Format uptime in human readable format"""
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
-        seconds = int(seconds % 60)
+        secs = int(seconds % 60)
         
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        if hours > 0:
+            return f"{hours}h {minutes}m {secs}s"
+        elif minutes > 0:
+            return f"{minutes}m {secs}s"
+        else:
+            return f"{secs}s"
     
-    def set_detection_enabled(self, enabled):
-        """Enable/disable face detection"""
-        self.settings['detection_enabled'] = enabled
-        logger.info(f"🔍 Face detection: {'ENABLED' if enabled else 'DISABLED'}")
-        
-        # Broadcast to all clients
-        self.socketio.emit('detection_status_changed', {
-            'active': enabled,
-            'timestamp': time.time()
-        })
-    
-    def is_detection_enabled(self):
-        """Check if face detection is enabled"""
-        return self.settings['detection_enabled']
-    
-    def update_settings(self, new_settings):
-        """Update streaming settings"""
-        self.settings.update(new_settings)
-        logger.info(f"Settings updated: {new_settings}")
-    
-    def get_client_count(self):
-        """Get number of connected clients"""
-        return len(self.clients)
-    
-    def cleanup_inactive_clients(self, timeout_seconds=30):
-        """Remove clients that haven't sent frames recently"""
-        current_time = time.time()
-        inactive_clients = []
-        
-        for client_id, client in self.clients.items():
-            if current_time - client['last_frame_time'] > timeout_seconds:
-                inactive_clients.append(client_id)
-        
-        for client_id in inactive_clients:
-            self.unregister_client(client_id)
-            logger.info(f"📱 Removed inactive client: {client_id[:8]}...")
-        
-        return len(inactive_clients)
-    
-    def broadcast_stats(self):
-        """Broadcast current stats to all connected desktop clients"""
-        stats = self.get_stats()
-        self.socketio.emit('stats_update', {
-            'stats': stats,
-            'timestamp': time.time()
-        }, room='desktop_monitors')
-    
-    def get_network_info(self):
-        """Get network information for mobile connection"""
-        import socket
-        
+    def health_check(self) -> Dict[str, Any]:
+        """Comprehensive health check"""
         try:
-            # Get local IP address
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-            s.close()
+            current_time = time.time()
+            
+            # Check processing thread
+            thread_healthy = self.processing_thread and self.processing_thread.is_alive()
+            
+            # Check queue status
+            queue_healthy = self.frame_queue.qsize() < self.frame_queue.maxsize * 0.8
+            
+            # Check recent activity
+            recent_activity = any(
+                current_time - client.last_frame_time < 60 
+                for client in self.clients.values() 
+                if client.last_frame_time > 0
+            )
+            
+            # Overall health
+            is_healthy = thread_healthy and queue_healthy
             
             return {
-                'local_ip': local_ip,
-                'port': 5000,
-                'mobile_url': f'http://{local_ip}:5000/mobile'
+                'status': 'healthy' if is_healthy else 'degraded',
+                'checks': {
+                    'processing_thread': thread_healthy,
+                    'queue_status': queue_healthy,
+                    'recent_activity': recent_activity,
+                    'face_service': self.face_service is not None
+                },
+                'stats': self.get_current_stats(),
+                'timestamp': current_time
             }
+            
         except Exception as e:
-            logger.error(f"Could not get network info: {e}")
+            logger.error(f"❌ Health check failed: {e}")
             return {
-                'local_ip': 'localhost',
-                'port': 5000,
-                'mobile_url': 'http://localhost:5000/mobile'
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': time.time()
             }
     
-    def validate_frame_rate(self, client_id):
-        """Check if client is sending frames too fast"""
-        if client_id not in self.clients:
-            return True
+    def shutdown(self):
+        """Graceful shutdown"""
+        logger.info("🛑 Shutting down stream service...")
         
-        client = self.clients[client_id]
-        current_time = time.time()
+        # Stop processing
+        self.stop_processing()
         
-        # Calculate time since last frame
-        if client['last_frame_time'] > 0:
-            time_diff = current_time - client['last_frame_time']
-            min_interval = 1.0 / self.settings['max_fps']
-            
-            if time_diff < min_interval:
-                return False  # Too fast
+        # Disconnect all clients
+        with self.client_lock:
+            for client_id in list(self.clients.keys()):
+                self.force_disconnect_client(client_id, "Server shutdown")
         
-        return True
-    
-    def get_frame_processing_queue_size(self):
-        """Get current frame processing queue size (for monitoring)"""
-        # This would be implemented if using a queue-based processing system
-        return 0
-    
-    def reset_stats(self):
-        """Reset all statistics"""
-        self.stats = {
-            'total_frames': 0,
-            'total_detections': 0,
-            'start_time': time.time(),
-            'last_fps_update': time.time(),
-            'fps': 0,
-            'frame_count_for_fps': 0
-        }
-        
-        # Reset client stats
-        for client in self.clients.values():
-            client['frames_received'] = 0
-            client['connected_at'] = time.time()
-        
-        logger.info("📊 Statistics reset")
-    
-    def export_session_data(self):
-        """Export session data for analysis"""
-        session_data = {
-            'session_info': {
-                'start_time': self.stats['start_time'],
-                'end_time': time.time(),
-                'duration': time.time() - self.stats['start_time']
-            },
-            'stats': self.get_stats(),
-            'settings': self.settings.copy(),
-            'clients_summary': {
-                'total_clients': len(self.clients),
-                'client_details': [
-                    {
-                        'client_id': client_id[:8] + '...',
-                        'frames_received': client['frames_received'],
-                        'connection_duration': time.time() - client['connected_at'],
-                        'avg_fps': self._calculate_client_fps(client_id)
-                    }
-                    for client_id, client in self.clients.items()
-                ]
-            }
-        }
-        
-        return session_data
-
-
-class FpsCalculator:
-    """Helper class for FPS calculation"""
-    
-    def __init__(self, window_size=30):
-        self.window_size = window_size
-        self.frame_times = []
-        self.last_fps = 0
-    
-    def update(self):
-        """Update FPS calculation with new frame"""
-        current_time = time.time()
-        self.frame_times.append(current_time)
-        
-        # Keep only recent frames
-        if len(self.frame_times) > self.window_size:
-            self.frame_times.pop(0)
-        
-        # Calculate FPS
-        if len(self.frame_times) >= 2:
-            time_span = self.frame_times[-1] - self.frame_times[0]
-            if time_span > 0:
-                self.last_fps = (len(self.frame_times) - 1) / time_span
-        
-        return self.last_fps
-    
-    def get_fps(self):
-        """Get current FPS"""
-        return round(self.last_fps, 1)
-
-
-class PerformanceMonitor:
-    """Monitor system performance during streaming"""
-    
-    def __init__(self):
-        self.metrics = {
-            'frame_processing_times': [],
-            'detection_times': [],
-            'average_processing_time': 0,
-            'peak_processing_time': 0,
-            'total_processed_frames': 0
-        }
-        self.lock = threading.Lock()
-    
-    def record_frame_processing(self, processing_time):
-        """Record frame processing time"""
-        with self.lock:
-            self.metrics['frame_processing_times'].append(processing_time)
-            self.metrics['total_processed_frames'] += 1
-            
-            # Keep only last 100 measurements
-            if len(self.metrics['frame_processing_times']) > 100:
-                self.metrics['frame_processing_times'].pop(0)
-            
-            # Update statistics
-            times = self.metrics['frame_processing_times']
-            self.metrics['average_processing_time'] = sum(times) / len(times)
-            self.metrics['peak_processing_time'] = max(times)
-    
-    def record_detection_time(self, detection_time):
-        """Record face detection time"""
-        with self.lock:
-            self.metrics['detection_times'].append(detection_time)
-            
-            # Keep only last 100 measurements
-            if len(self.metrics['detection_times']) > 100:
-                self.metrics['detection_times'].pop(0)
-    
-    def get_performance_stats(self):
-        """Get current performance statistics"""
-        with self.lock:
-            return {
-                'average_processing_time_ms': round(self.metrics['average_processing_time'] * 1000, 2),
-                'peak_processing_time_ms': round(self.metrics['peak_processing_time'] * 1000, 2),
-                'total_processed_frames': self.metrics['total_processed_frames'],
-                'average_detection_time_ms': round(
-                    sum(self.metrics['detection_times']) / len(self.metrics['detection_times']) * 1000, 2
-                ) if self.metrics['detection_times'] else 0
-            }
-    
-    def reset(self):
-        """Reset all performance metrics"""
-        with self.lock:
-            self.metrics = {
-                'frame_processing_times': [],
-                'detection_times': [],
-                'average_processing_time': 0,
-                'peak_processing_time': 0,
-                'total_processed_frames': 0
-            }
-
-
-def initialize_stream_service(socketio):
-    """Initialize the stream service with proper configuration"""
-    service = StreamService(socketio)
-    
-    # Start periodic cleanup task
-    def cleanup_task():
-        while True:
-            try:
-                removed_count = service.cleanup_inactive_clients()
-                if removed_count > 0:
-                    logger.info(f"🧹 Cleaned up {removed_count} inactive clients")
-                
-                # Broadcast stats every 5 seconds
-                service.broadcast_stats()
-                
-                time.sleep(5)
-            except Exception as e:
-                logger.error(f"Cleanup task error: {e}")
-                time.sleep(5)
-    
-    # Start background thread
-    cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
-    cleanup_thread.start()
-    
-    logger.info("🚀 StreamService initialized with background tasks")
-    return service
+        logger.info("✅ Stream service shutdown complete")
