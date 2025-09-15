@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 BHK Tech - Điểm Danh Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100vw;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .connection-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 10px 0;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            background: #000;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+            min-height: 300px;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .video-overlay-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 20;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats-panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .detection-results {
+            margin: 20px 0;
+        }
+
+        .detection-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            border-left: 4px solid #3498db;
+            text-align: left;
+        }
+
+        .detection-card.employee {
+            border-left-color: #2ecc71;
+        }
+
+        .detection-card.stranger {
+            border-left-color: #e74c3c;
+        }
+
+        .employee-info {
+            text-align: left;
+        }
+
+        .employee-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .employee-details {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .confidence-bar {
+            margin-top: 10px;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e74c3c, #f39c12, #2ecc71);
+            transition: width 0.3s ease;
+        }
+
+        .streaming-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            background: #e74c3c;
+            border-radius: 50%;
+            z-index: 20;
+        }
+
+        .streaming-indicator.active {
+            background: #2ecc71;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 5px; }
+            .header h1 { font-size: 20px; }
+            .btn { min-width: 100px; font-size: 14px; }
+            .video-container { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 BHK Tech Mobile</h1>
+            <p>Hệ Thống Điểm Danh Thông Minh</p>
+            <div id="connectionStatus" class="connection-status disconnected">
+                🔴 Đang kết nối...
+            </div>
+        </div>
+
+        <div class="video-container">
+            <video id="videoElement" autoplay muted playsinline></video>
+            <canvas id="overlayCanvas"></canvas>
+            <div class="video-overlay-info" id="videoInfo">
+                📹 Camera chưa khởi động
+            </div>
+            <div class="streaming-indicator" id="streamingIndicator"></div>
+        </div>
+
+        <div class="controls">
+            <button id="startCameraBtn" class="btn btn-success">📹 Bật Camera</button>
+            <button id="stopCameraBtn" class="btn btn-danger" style="display:none;">⏹ Tắt Camera</button>
+            <button id="switchCameraBtn" class="btn btn-primary" style="display:none;">🔄 Đổi Camera</button>
+        </div>
+
+        <div class="stats-panel">
+            <h3>📊 Thống Kê Real-time</h3>
+            <div class="stats-row">
+                <span>Frames Sent:</span>
+                <span id="framesSent">0</span>
+            </div>
+            <div class="stats-row">
+                <span>Faces Detected:</span>
+                <span id="facesDetected">0</span>
+            </div>
+            <div class="stats-row">
+                <span>FPS:</span>
+                <span id="currentFPS">0</span>
+            </div>
+            <div class="stats-row">
+                <span>Ping:</span>
+                <span id="networkPing">0ms</span>
+            </div>
+            <div class="stats-row">
+                <span>Quality:</span>
+                <span id="streamQuality">Good</span>
+            </div>
+        </div>
+
+        <div class="detection-results" id="detectionResults">
+            <p style="text-align: center; opacity: 0.7;">Chờ kết quả phát hiện...</p>
+        </div>
+
+        <div id="errorMessages"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // =====================================================
+        // GLOBAL VARIABLES
+        // =====================================================
+        let socket;
+        let videoElement;
+        let overlayCanvas;
+        let overlayCtx;
+        let stream;
+        let isStreaming = false;
+        let isConnected = false;
+        let framesSent = 0;
+        let facesDetected = 0;
+        let currentFPS = 0;
+        let lastFrameTime = 0;
+        let currentCamera = 'user'; // 'user' for front, 'environment' for back
+        let detectionActive = false;
+        let streamingInterval;
+        let pingInterval;
+
+        // Stream settings
+        const streamSettings = {
+            frameRate: 15,
+            quality: 0.8,
+            maxRetries: 3,
+            retryDelay: 1000
+        };
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeElements();
+            connectToServer();
+            setupEventListeners();
+            startPingMonitoring();
+        });
+
+        function initializeElements() {
+            videoElement = document.getElementById('videoElement');
+            overlayCanvas = document.getElementById('overlayCanvas');
+            overlayCtx = overlayCanvas.getContext('2d');
+            
+            // Set canvas size when video loads
+            videoElement.addEventListener('loadedmetadata', function() {
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+            });
+
+            videoElement.addEventListener('resize', function() {
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+            });
+        }
+
+        function connectToServer() {
+            socket = io(window.location.origin, {
+                transports: ['websocket', 'polling'],
+                timeout: 10000,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 2000
+            });
+
+            socket.on('connect', function() {
+                console.log('✅ Connected to server');
+                isConnected = true;
+                updateConnectionStatus(true);
+                
+                // Register as mobile client
+                socket.emit('register_mobile_client', {
+                    user_agent: navigator.userAgent,
+                    screen_size: `${screen.width}x${screen.height}`,
+                    timestamp: Date.now()
+                });
+            });
+
+            socket.on('disconnect', function() {
+                console.log('❌ Disconnected from server');
+                isConnected = false;
+                updateConnectionStatus(false);
+                stopStreaming();
+            });
+
+            socket.on('mobile_registered', function(data) {
+                console.log('📱 Mobile client registered:', data);
+                detectionActive = data.detection_active;
+                updateVideoInfo();
+                showSuccess('Đã kết nối thành công!');
+            });
+
+            socket.on('detection_result', function(data) {
+                handleDetectionResult(data);
+            });
+
+            socket.on('detection_status_changed', function(data) {
+                detectionActive = data.active;
+                updateVideoInfo();
+            });
+
+            socket.on('pong', function(data) {
+                const ping = Date.now() - data.timestamp;
+                updatePing(ping);
+            });
+
+            socket.on('connect_error', function(error) {
+                console.error('❌ Connection error:', error);
+                updateConnectionStatus(false);
+                showError('Lỗi kết nối: ' + error.message);
+            });
+
+            socket.on('reconnect', function() {
+                console.log('🔄 Reconnected to server');
+                updateConnectionStatus(true);
+                showSuccess('Đã kết nối lại!');
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+            document.getElementById('stopCameraBtn').addEventListener('click', stopCamera);
+            document.getElementById('switchCameraBtn').addEventListener('click', switchCamera);
+
+            // Handle visibility change
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    pauseStreaming();
+                } else {
+                    resumeStreaming();
+                }
+            });
+
+            // Handle orientation change
+            window.addEventListener('orientationchange', function() {
+                setTimeout(() => {
+                    if (overlayCanvas && videoElement) {
+                        overlayCanvas.width = videoElement.videoWidth;
+                        overlayCanvas.height = videoElement.videoHeight;
+                    }
+                }, 500);
+            });
+        }
+
+        // =====================================================
+        // CAMERA CONTROLS
+        // =====================================================
+        async function startCamera() {
+            try {
+                updateVideoInfo('Đang khởi động camera...');
+                
+                const constraints = {
+                    video: {
+                        facingMode: currentCamera,
+                        width: { ideal: 640, max: 1280 },
+                        height: { ideal: 480, max: 720 },
+                        frameRate: { ideal: streamSettings.frameRate, max: 30 }
+                    },
+                    audio: false
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = stream;
+                
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    videoElement.onloadedmetadata = resolve;
+                });
+
+                isStreaming = true;
+                updateCameraButtons();
+                updateVideoInfo('📹 Camera đang hoạt động');
+                updateStreamingIndicator(true);
+                
+                // Start real-time streaming
+                startStreaming();
+                
+            } catch (error) {
+                console.error('❌ Camera error:', error);
+                handleCameraError(error);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            videoElement.srcObject = null;
+            isStreaming = false;
+            stopStreaming();
+            updateCameraButtons();
+            updateVideoInfo('📹 Camera đã tắt');
+            updateStreamingIndicator(false);
+            
+            // Clear overlay and results
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            clearDetectionResults();
+        }
+
+        async function switchCamera() {
+            if (!isStreaming) return;
+            
+            currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+            stopCamera();
+            
+            // Small delay before starting new camera
+            setTimeout(() => {
+                startCamera();
+            }, 500);
+        }
+
+        function handleCameraError(error) {
+            let message = 'Lỗi camera: ';
+            
+            if (error.name === 'NotAllowedError') {
+                message += 'Vui lòng cho phép truy cập camera';
+            } else if (error.name === 'NotFoundError') {
+                message += 'Không tìm thấy camera';
+            } else if (error.name === 'NotSupportedError') {
+                message += 'Trình duyệt không hỗ trợ';
+            } else {
+                message += error.message;
+            }
+            
+            updateVideoInfo(message);
+            showError(message);
+        }
+
+        function updateCameraButtons() {
+            const startBtn = document.getElementById('startCameraBtn');
+            const stopBtn = document.getElementById('stopCameraBtn');
+            const switchBtn = document.getElementById('switchCameraBtn');
+            
+            if (isStreaming) {
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-block';
+                switchBtn.style.display = 'inline-block';
+            } else {
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+                switchBtn.style.display = 'none';
+            }
+        }
+
+        // =====================================================
+        // REAL-TIME VIDEO STREAMING
+        // =====================================================
+        function startStreaming() {
+            if (!isStreaming || !isConnected) return;
+            
+            const frameInterval = 1000 / streamSettings.frameRate; // ms between frames
+            
+            streamingInterval = setInterval(() => {
+                if (isStreaming && isConnected && !document.hidden) {
+                    captureAndSendFrame();
+                }
+            }, frameInterval);
+        }
+
+        function stopStreaming() {
+            if (streamingInterval) {
+                clearInterval(streamingInterval);
+                streamingInterval = null;
+            }
+        }
+
+        function pauseStreaming() {
+            if (streamingInterval) {
+                clearInterval(streamingInterval);
+                streamingInterval = null;
+            }
+        }
+
+        function resumeStreaming() {
+            if (isStreaming && isConnected && !streamingInterval) {
+                startStreaming();
+            }
+        }
+
+        function captureAndSendFrame() {
+            try {
+                if (!videoElement.videoWidth || !videoElement.videoHeight) {
+                    return;
+                }
+                
+                // Create canvas for frame capture
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                
+                // Draw current video frame
+                ctx.drawImage(videoElement, 0, 0);
+                
+                // Convert to base64 with quality setting
+                const frameData = canvas.toDataURL('image/jpeg', streamSettings.quality);
+                
+                // Send frame to server
+                socket.emit('video_frame', {
+                    frame: frameData,
+                    timestamp: Date.now(),
+                    sequence_number: framesSent + 1,
+                    quality: streamSettings.quality
+                });
+                
+                // Update stats
+                framesSent++;
+                updateStats();
+                updateFPS();
+                
+            } catch (error) {
+                console.error('❌ Frame capture error:', error);
+                showError('Lỗi chụp frame: ' + error.message);
+            }
+        }
+
+        // =====================================================
+        // DETECTION RESULT HANDLING
+        // =====================================================
+        function handleDetectionResult(data) {
+            if (!data.success) {
+                console.error('❌ Detection error:', data.error);
+                showError('Lỗi nhận diện: ' + data.error);
+                return;
+            }
+            
+            // Clear previous overlay
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            // Process detections
+            if (data.detections && data.detections.length > 0) {
+                facesDetected += data.detections.length;
+                drawDetections(data.detections);
+                updateDetectionResults(data.detections);
+            } else {
+                clearDetectionResults();
+            }
+            
+            updateStats();
+            updateStreamQuality(data);
+        }
+
+        function drawDetections(detections) {
+            // Set drawing style
+            overlayCtx.strokeStyle = '#00ff00';
+            overlayCtx.lineWidth = 3;
+            overlayCtx.font = '16px Arial';
+            overlayCtx.fillStyle = '#00ff00';
+            
+            detections.forEach((detection, index) => {
+                if (detection.bbox) {
+                    const [x, y, w, h] = detection.bbox;
+                    
+                    // Choose color based on recognition type
+                    if (detection.type === 'known') {
+                        overlayCtx.strokeStyle = '#2ecc71'; // Green for known
+                        overlayCtx.fillStyle = '#2ecc71';
+                    } else {
+                        overlayCtx.strokeStyle = '#e74c3c'; // Red for unknown
+                        overlayCtx.fillStyle = '#e74c3c';
+                    }
+                    
+                    // Draw bounding box
+                    overlayCtx.strokeRect(x, y, w, h);
+                    
+                    // Draw label
+                    let label = detection.employee ? 
+                        `${detection.employee.name} (${Math.round(detection.confidence * 100)}%)` : 
+                        `Người lạ (${Math.round(detection.confidence * 100)}%)`;
+                    
+                    // Background for text
+                    const textWidth = overlayCtx.measureText(label).width;
+                    overlayCtx.fillRect(x, y - 25, textWidth + 10, 20);
+                    
+                    // Text
+                    overlayCtx.fillStyle = '#ffffff';
+                    overlayCtx.fillText(label, x + 5, y - 10);
+                }
+            });
+        }
+
+        function updateDetectionResults(detections) {
+            const resultsDiv = document.getElementById('detectionResults');
+            resultsDiv.innerHTML = '';
+            
+            detections.forEach((detection, index) => {
+                const card = document.createElement('div');
+                card.className = `detection-card ${detection.type === 'known' ? 'employee' : 'stranger'}`;
+                
+                if (detection.employee) {
+                    card.innerHTML = `
+                        <div class="employee-info">
+                            <div class="employee-name">✅ ${detection.employee.name}</div>
+                            <div class="employee-details">
+                                Mã NV: ${detection.employee.employee_code}<br>
+                                Phòng ban: ${detection.employee.department || 'N/A'}<br>
+                                Chức vụ: ${detection.employee.position || 'N/A'}
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${detection.confidence * 100}%"></div>
+                            </div>
+                            <small>Độ tin cậy: ${Math.round(detection.confidence * 100)}%</small>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="employee-info">
+                            <div class="employee-name">❓ Người lạ</div>
+                            <div class="employee-details">
+                                Khuôn mặt chưa được đăng ký trong hệ thống<br>
+                                Vui lòng liên hệ quản trị viên
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${detection.confidence * 100}%"></div>
+                            </div>
+                            <small>Độ tin cậy: ${Math.round(detection.confidence * 100)}%</small>
+                        </div>
+                    `;
+                }
+                
+                resultsDiv.appendChild(card);
+                
+                // Auto-remove after 10 seconds
+                setTimeout(() => {
+                    if (card.parentNode) {
+                        card.remove();
+                    }
+                }, 10000);
+            });
+        }
+
+        function clearDetectionResults() {
+            const resultsDiv = document.getElementById('detectionResults');
+            resultsDiv.innerHTML = '<p style="text-align: center; opacity: 0.7;">Chờ kết quả phát hiện...</p>';
+        }
+
+        // =====================================================
+        // UI UPDATES
+        // =====================================================
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                statusDiv.className = 'connection-status connected';
+                statusDiv.innerHTML = '🟢 Đã kết nối server';
+            } else {
+                statusDiv.className = 'connection-status disconnected';
+                statusDiv.innerHTML = '🔴 Mất kết nối server';
+            }
+        }
+
+        function updateVideoInfo(text) {
+            const infoDiv = document.getElementById('videoInfo');
+            if (text) {
+                infoDiv.textContent = text;
+            } else {
+                infoDiv.textContent = detectionActive ? 
+                    '🔍 Face Detection: ON' : 
+                    '📹 Camera: ON - Detection: OFF';
+            }
+        }
+
+        function updateStreamingIndicator(active) {
+            const indicator = document.getElementById('streamingIndicator');
+            if (active) {
+                indicator.classList.add('active');
+            } else {
+                indicator.classList.remove('active');
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('framesSent').textContent = framesSent;
+            document.getElementById('facesDetected').textContent = facesDetected;
+        }
+
+        function updateFPS() {
+            const now = Date.now();
+            if (lastFrameTime) {
+                const fps = 1000 / (now - lastFrameTime);
+                currentFPS = Math.round(fps * 10) / 10;
+                document.getElementById('currentFPS').textContent = currentFPS;
+            }
+            lastFrameTime = now;
+        }
+
+        function updatePing(ping) {
+            document.getElementById('networkPing').textContent = ping + 'ms';
+            
+            // Update quality indicator based on ping
+            let quality = 'Good';
+            if (ping > 200) {
+                quality = 'Poor';
+            } else if (ping > 100) {
+                quality = 'Fair';
+            }
+            document.getElementById('streamQuality').textContent = quality;
+        }
+
+        function updateStreamQuality(data) {
+            const processingTime = data.processing_time_ms || 0;
+            let quality = 'Good';
+            
+            if (processingTime > 500) {
+                quality = 'Poor';
+            } else if (processingTime > 200) {
+                quality = 'Fair';
+            }
+            
+            document.getElementById('streamQuality').textContent = quality;
+        }
+
+        // =====================================================
+        // NOTIFICATION SYSTEM
+        // =====================================================
+        function showError(message) {
+            showNotification(message, 'error');
+        }
+
+        function showSuccess(message) {
+            showNotification(message, 'success');
+        }
+
+        function showNotification(message, type) {
+            const container = document.getElementById('errorMessages');
+            const notification = document.createElement('div');
+            
+            notification.className = `${type}-message`;
+            notification.textContent = message;
+            
+            container.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        // =====================================================
+        // PING MONITORING
+        // =====================================================
+        function startPingMonitoring() {
+            pingInterval = setInterval(() => {
+                if (isConnected) {
+                    socket.emit('ping', { timestamp: Date.now() });
+                }
+            }, 3000); // Ping every 3 seconds
+        }
+
+        function stopPingMonitoring() {
+            if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+            }
+        }
+
+        // =====================================================
+        // CLEANUP & ERROR HANDLING
+        // =====================================================
+        window.addEventListener('beforeunload', function() {
+            cleanup();
+        });
+
+        function cleanup() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            stopStreaming();
+            stopPingMonitoring();
+            if (socket) {
+                socket.disconnect();
+            }
+        }
+
+        // Handle network status changes
+        window.addEventListener('online', function() {
+            showSuccess('Kết nối mạng đã khôi phục');
+            if (!isConnected) {
+                socket.connect();
+            }
+        });
+
+        window.addEventListener('offline', function() {
+            showError('Mất kết nối mạng');
+            stopStreaming();
+        });
+
+        // =====================================================
+        // ADVANCED FEATURES
+        // =====================================================
+        
+        // Auto-retry failed connections
+        function retryConnection() {
+            let retryCount = 0;
+            const maxRetries = streamSettings.maxRetries;
+            
+            function attempt() {
+                if (retryCount < maxRetries && !isConnected) {
+                    retryCount++;
+                    showNotification(`Đang thử kết nối lại... (${retryCount}/${maxRetries})`, 'info');
+                    
+                    socket.connect();
+                    
+                    setTimeout(() => {
+                        if (!isConnected) {
+                            attempt();
+                        }
+                    }, streamSettings.retryDelay * retryCount);
+                }
+            }
+            
+            attempt();
+        }
+
+        // Performance monitoring
+        function monitorPerformance() {
+            setInterval(() => {
+                const fpsElement = document.getElementById('currentFPS');
+                const currentFPSValue = parseFloat(fpsElement.textContent);
+                
+                // Warn if FPS is too low
+                if (currentFPSValue > 0 && currentFPSValue < streamSettings.frameRate * 0.5) {
+                    showNotification('FPS thấp - chất lượng stream có thể bị ảnh hưởng', 'warning');
+                }
+            }, 10000); // Check every 10 seconds
+        }
+
+        // Start performance monitoring
+        setTimeout(monitorPerformance, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BHK Tech - Desktop Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            height: calc(100vh - 120px);
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .panel-content {
+            padding: 1rem;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card {
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .client-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .client-item {
+            padding: 0.75rem;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+        }
+        
+        .client-name {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+        
+        .client-info {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .detection-feed {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detection-item {
+            padding: 0.75rem;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+            margin-bottom: 0.5rem;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .detection-name {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .detection-details {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+        
+        .controls {
+            padding: 1rem;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-online {
+            background: #28a745;
+        }
+        
+        .status-offline {
+            background: #dc3545;
+        }
+        
+        .detection-enabled {
+            color: #28a745;
+        }
+        
+        .detection-disabled {
+            color: #dc3545;
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️ BHK Tech Attendance - Desktop Dashboard</h1>
+        <div class="status-bar">
+            <div>
+                <span class="status-indicator status-online"></span>
+                <span id="connection-status">Connecting...</span>
+            </div>
+            <div>
+                <span id="detection-status" class="detection-enabled">🔍 Detection: Enabled</span>
+            </div>
+            <div>📱 Mobile Clients: <span id="mobile-count">0</span></div>
+            <div>⏱️ Uptime: <span id="uptime">00:00:00</span></div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="panel">
+            <div class="panel-header">📊 Real-time Statistics</div>
+            <div class="panel-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-frames">0</div>
+                        <div class="stat-label">Total Frames</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-detections">0</div>
+                        <div class="stat-label">Detections</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="current-fps">0.0</div>
+                        <div class="stat-label">FPS</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avg-processing">0ms</div>
+                        <div class="stat-label">Avg Processing</div>
+                    </div>
+                </div>
+                
+                <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">Connected Mobile Clients</h4>
+                <div class="client-list" id="client-list">
+                    <div style="text-align: center; color: #6c757d; padding: 2rem;">
+                        No mobile clients connected
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">🔍 Live Detection Feed</div>
+            <div class="panel-content">
+                <div class="detection-feed" id="detection-feed">
+                    <div style="text-align: center; color: #6c757d; padding: 2rem;">
+                        Waiting for detections...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" id="toggle-detection">🔍 Toggle Detection</button>
+        <button class="btn btn-primary" onclick="window.open('/api/employees', '_blank')">👥 Employee Management</button>
+        <button class="btn btn-primary" onclick="window.open('/health', '_blank')">❤️ System Health</button>
+        <div style="margin-left: auto; font-size: 0.85rem; color: #6c757d;">
+            📱 Mobile URL: <code id="mobile-url">http://[YOUR_IP]:5000/mobile</code>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // State
+        let detectionEnabled = true;
+        let connectedClients = {};
+        let startTime = Date.now();
+        
+        // Update mobile URL with current host
+        document.getElementById('mobile-url').textContent = 
+            `http://${window.location.hostname}:${window.location.port}/mobile`;
+        
+        // Socket events
+        socket.on('connect', () => {
+            console.log('✅ Connected to server');
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.querySelector('.status-indicator').className = 'status-indicator status-online';
+            
+            // Join desktop monitor room
+            socket.emit('join_desktop_monitor');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('❌ Disconnected from server');
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.querySelector('.status-indicator').className = 'status-indicator status-offline';
+        });
+        
+        socket.on('desktop_monitor_joined', (data) => {
+            console.log('🖥️ Joined desktop monitor room', data);
+            updateStats(data.stats);
+            updateClientList(data.mobile_clients || []);
+            detectionEnabled = data.detection_active;
+            updateDetectionStatus();
+        });
+        
+        socket.on('mobile_connected', (data) => {
+            console.log('📱 Mobile client connected:', data.client_id);
+            document.getElementById('mobile-count').textContent = data.client_count;
+        });
+        
+        socket.on('frame_processed', (data) => {
+            updateDetectionFeed(data);
+            updateFrameStats(data);
+        });
+        
+        socket.on('detection_status_changed', (data) => {
+            detectionEnabled = data.active;
+            updateDetectionStatus();
+        });
+        
+        socket.on('client_disconnected', (data) => {
+            console.log('📱 Client disconnected:', data.client_id);
+            document.getElementById('mobile-count').textContent = data.total_clients;
+            removeClient(data.client_id);
+        });
+        
+        // Update functions
+        function updateStats(stats) {
+            document.getElementById('total-frames').textContent = stats.total_frames || 0;
+            document.getElementById('total-detections').textContent = stats.total_detections || 0;
+            document.getElementById('current-fps').textContent = (stats.fps || 0).toFixed(1);
+        }
+        
+        function updateClientList(clients) {
+            const clientList = document.getElementById('client-list');
+            
+            if (clients.length === 0) {
+                clientList.innerHTML = `
+                    <div style="text-align: center; color: #6c757d; padding: 2rem;">
+                        No mobile clients connected
+                    </div>
+                `;
+                return;
+            }
+            
+            clientList.innerHTML = clients.map(client => `
+                <div class="client-item">
+                    <div class="client-name">📱 Client ${client.id.substring(0, 8)}...</div>
+                    <div class="client-info">
+                        Frames: ${client.frames_sent || 0} | 
+                        Connected: ${new Date(client.connected_at * 1000).toLocaleTimeString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateDetectionFeed(data) {
+            const feed = document.getElementById('detection-feed');
+            
+            if (data.detections && data.detections.length > 0) {
+                const detectionsHtml = data.detections.map(detection => `
+                    <div class="detection-item">
+                        <div class="detection-name">
+                            ${detection.type === 'recognized' ? '✅' : '❓'} ${detection.name}
+                        </div>
+                        <div class="detection-details">
+                            Confidence: ${(detection.confidence * 100).toFixed(1)}% | 
+                            Client: ${data.client_id.substring(0, 8)}... | 
+                            ${new Date().toLocaleTimeString()}
+                        </div>
+                    </div>
+                `).join('');
+                
+                feed.innerHTML = detectionsHtml + feed.innerHTML;
+                
+                // Keep only last 10 detections
+                const items = feed.querySelectorAll('.detection-item');
+                if (items.length > 10) {
+                    for (let i = 10; i < items.length; i++) {
+                        items[i].remove();
+                    }
+                }
+            }
+        }
+        
+        function updateFrameStats(data) {
+            document.getElementById('total-frames').textContent = data.frame_count || 0;
+            
+            if (data.processing_time) {
+                const avgMs = Math.round(data.processing_time * 1000);
+                document.getElementById('avg-processing').textContent = `${avgMs}ms`;
+            }
+        }
+        
+        function updateDetectionStatus() {
+            const statusEl = document.getElementById('detection-status');
+            if (detectionEnabled) {
+                statusEl.textContent = '🔍 Detection: Enabled';
+                statusEl.className = 'detection-enabled';
+            } else {
+                statusEl.textContent = '🚫 Detection: Disabled';
+                statusEl.className = 'detection-disabled';
+            }
+        }
+        
+        function removeClient(clientId) {
+            const items = document.querySelectorAll('.client-item');
+            items.forEach(item => {
+                if (item.textContent.includes(clientId.substring(0, 8))) {
+                    item.remove();
+                }
+            });
+        }
+        
+        // Control handlers
+        document.getElementById('toggle-detection').addEventListener('click', () => {
+            socket.emit('toggle_detection', { active: !detectionEnabled });
+        });
+        
+        // Update uptime
+        setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const hours = Math.floor(elapsed / 3600000);
+            const minutes = Math.floor((elapsed % 3600000) / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            
+            document.getElementById('uptime').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }, 1000);
+        
+        // Periodic stats request
+        setInterval(() => {
+            socket.emit('get_system_stats');
+        }, 5000);
+        
+        socket.on('system_stats_update', (data) => {
+            updateStats(data.stats);
+        });
+    </script>
+</body>
+</html>

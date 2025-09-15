@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 BHK Tech - Điểm Danh Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .camera-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .detection-box {
+            position: absolute;
+            border: 3px solid #00ff00;
+            border-radius: 4px;
+            background: rgba(0, 255, 0, 0.1);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+        
+        .detection-box.recognized {
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        .detection-box.unknown {
+            border-color: #ff9500;
+            box-shadow: 0 0 20px rgba(255, 149, 0, 0.5);
+        }
+        
+        .detection-label {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+        }
+        
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            padding: 1rem;
+            z-index: 20;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .status-left {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-online {
+            background: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        
+        .status-offline {
+            background: #ff0000;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        
+        .bottom-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            padding: 1rem;
+            z-index: 20;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-primary {
+            background: rgba(102, 126, 234, 0.8);
+            color: white;
+            border: 2px solid rgba(102, 126, 234, 0.5);
+        }
+        
+        .btn-primary:hover {
+            background: rgba(102, 126, 234, 1);
+            border-color: #667eea;
+        }
+        
+        .btn-danger {
+            background: rgba(220, 53, 69, 0.8);
+            color: white;
+            border: 2px solid rgba(220, 53, 69, 0.5);
+        }
+        
+        .btn-danger:hover {
+            background: rgba(220, 53, 69, 1);
+            border-color: #dc3545;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 30;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 30;
+            backdrop-filter: blur(10px);
+        }
+        
+        .toast {
+            position: fixed;
+            top: 100px;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 40;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .fps-counter {
+            position: absolute;
+            top: 60px;
+            left: 1rem;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 25;
+        }
+    </style>
+</head>
+<body>
+    <div class="camera-container">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas" style="display: none;"></canvas>
+        
+        <div class="overlay" id="overlay"></div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Initializing camera...</div>
+        </div>
+    </div>
+    
+    <div class="fps-counter" id="fps-counter" style="display: none;">
+        FPS: <span id="fps-value">0</span>
+    </div>
+    
+    <div class="top-bar">
+        <div class="status">
+            <div class="status-left">
+                <div>
+                    <span class="status-indicator status-offline" id="connection-indicator"></span>
+                    <span id="connection-status">Connecting...</span>
+                </div>
+                <div id="detection-status">🔍 Detection: On</div>
+            </div>
+            <div>📹 BHK Tech</div>
+        </div>
+    </div>
+    
+    <div class="bottom-bar">
+        <div class="controls">
+            <button class="btn btn-primary" id="start-btn">📹 Start Stream</button>
+            <button class="btn btn-danger" id="stop-btn" style="display: none;">⏹️ Stop Stream</button>
+        </div>
+        
+        <div class="stats">
+            <div>📊 Frames: <span id="frame-count">0</span></div>
+            <div>🎯 Detections: <span id="detection-count">0</span></div>
+            <div>⚡ Latency: <span id="latency">0ms</span></div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script>
+        // Global variables
+        let socket;
+        let video;
+        let canvas;
+        let ctx;
+        let isStreaming = false;
+        let streamInterval;
+        let frameCount = 0;
+        let detectionCount = 0;
+        let lastFrameTime = 0;
+        let fpsCounter = 0;
+        let fpsInterval;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            initializeSocket();
+            initializeCamera();
+        });
+        
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('✅ Connected to server');
+                updateConnectionStatus(true);
+                
+                // Register as mobile client
+                socket.emit('register_mobile_client', {
+                    user_agent: navigator.userAgent,
+                    screen_size: `${screen.width}x${screen.height}`
+                });
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('❌ Disconnected from server');
+                updateConnectionStatus(false);
+                stopStreaming();
+            });
+            
+            socket.on('mobile_registered', (data) => {
+                console.log('📱 Mobile client registered:', data.client_id);
+                showToast('✅ Connected to server');
+            });
+            
+            socket.on('detection_result', (data) => {
+                handleDetectionResult(data);
+            });
+            
+            socket.on('detection_status_changed', (data) => {
+                updateDetectionStatus(data.active);
+            });
+            
+            socket.on('video_frame_error', (data) => {
+                console.error('Frame processing error:', data.error);
+                showToast('❌ ' + data.error);
+            });
+        }
+        
+        async function initializeCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: 'user', // Front camera
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    hideLoading();
+                    showToast('📹 Camera initialized');
+                };
+                
+            } catch (error) {
+                console.error('Camera initialization error:', error);
+                showError('Camera access denied. Please allow camera permissions.');
+            }
+        }
+        
+        function startStreaming() {
+            if (isStreaming) return;
+            
+            isStreaming = true;
+            frameCount = 0;
+            detectionCount = 0;
+            
+            document.getElementById('start-btn').style.display = 'none';
+            document.getElementById('stop-btn').style.display = 'inline-block';
+            document.getElementById('fps-counter').style.display = 'block';
+            
+            // Start frame capture
+            streamInterval = setInterval(captureAndSendFrame, 100); // 10 FPS
+            
+            // Start FPS counter
+            fpsInterval = setInterval(updateFPS, 1000);
+            
+            showToast('📹 Streaming started');
+        }
+        
+        function stopStreaming() {
+            if (!isStreaming) return;
+            
+            isStreaming = false;
+            
+            if (streamInterval) clearInterval(streamInterval);
+            if (fpsInterval) clearInterval(fpsInterval);
+            
+            document.getElementById('start-btn').style.display = 'inline-block';
+            document.getElementById('stop-btn').style.display = 'none';
+            document.getElementById('fps-counter').style.display = 'none';
+            
+            clearDetections();
+            showToast('⏹️ Streaming stopped');
+        }
+        
+        function captureAndSendFrame() {
+            if (!video.videoWidth || !video.videoHeight) return;
+            
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64
+            const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send frame to server
+            const frameData = {
+                frame: dataURL,
+                timestamp: Date.now(),
+                client_info: {
+                    width: canvas.width,
+                    height: canvas.height
+                }
+            };
+            
+            socket.emit('video_frame', frameData);
+            
+            frameCount++;
+            document.getElementById('frame-count').textContent = frameCount;
+            
+            // Calculate latency
+            lastFrameTime = Date.now();
+        }
+        
+        function handleDetectionResult(data) {
+            if (!data.success) {
+                console.error('Detection failed:', data.error);
+                return;
+            }
+            
+            // Update latency
+            if (data.timestamp && lastFrameTime) {
+                const latency = Date.now() - (data.timestamp * 1000);
+                document.getElementById('latency').textContent = `${Math.round(latency)}ms`;
+            }
+            
+            // Clear previous detections
+            clearDetections();
+            
+            // Draw new detections
+            if (data.detections && data.detections.length > 0) {
+                drawDetections(data.detections);
+                detectionCount += data.detections.length;
+                document.getElementById('detection-count').textContent = detectionCount;
+            }
+        }
+        
+        function drawDetections(detections) {
+            const overlay = document.getElementById('overlay');
+            
+            detections.forEach(detection => {
+                const box = document.createElement('div');
+                box.className = `detection-box ${detection.type}`;
+                
+                // Scale coordinates to video display size
+                const videoRect = video.getBoundingClientRect();
+                const scaleX = videoRect.width / canvas.width;
+                const scaleY = videoRect.height / canvas.height;
+                
+                const [x, y, w, h] = detection.bbox;
+                
+                box.style.left = `${x * scaleX}px`;
+                box.style.top = `${y * scaleY}px`;
+                box.style.width = `${w * scaleX}px`;
+                box.style.height = `${h * scaleY}px`;
+                
+                // Add label
+                const label = document.createElement('div');
+                label.className = 'detection-label';
+                label.textContent = `${detection.name} (${Math.round(detection.confidence * 100)}%)`;
+                box.appendChild(label);
+                
+                overlay.appendChild(box);
+                
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    if (box.parentNode) {
+                        box.parentNode.removeChild(box);
+                    }
+                }, 3000);
+            });
+        }
+        
+        function clearDetections() {
+            const overlay = document.getElementById('overlay');
+            overlay.innerHTML = '';
+        }
+        
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connection-indicator');
+            const status = document.getElementById('connection-status');
+            
+            if (connected) {
+                indicator.className = 'status-indicator status-online';
+                status.textContent = 'Connected';
+            } else {
+                indicator.className = 'status-indicator status-offline';
+                status.textContent = 'Disconnected';
+            }
+        }
+        
+        function updateDetectionStatus(enabled) {
+            const status = document.getElementById('detection-status');
+            status.textContent = enabled ? '🔍 Detection: On' : '🚫 Detection: Off';
+        }
+        
+        function updateFPS() {
+            const currentTime = Date.now();
+            fpsCounter++;
+            
+            if (fpsCounter % 10 === 0) { // Update every 10 seconds
+                document.getElementById('fps-value').textContent = '~10';
+            }
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function showError(message) {
+            hideLoading();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Event listeners
+        document.getElementById('start-btn').addEventListener('click', startStreaming);
+        document.getElementById('stop-btn').addEventListener('click', stopStreaming);
+        
+        // Handle orientation change
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (canvas && video.videoWidth && video.videoHeight) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                }
+            }, 500);
+        });
+        
+        // Prevent sleep
+        let wakeLock = null;
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').then(lock => {
+                wakeLock = lock;
+                console.log('Screen wake lock acquired');
+            }).catch(err => {
+                console.log('Wake lock failed:', err);
+            });
+        }
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isStreaming) {
+                console.log('App hidden, continuing stream...');
+            } else if (!document.hidden && isStreaming) {
+                console.log('App visible, stream active');
+            }
+        });
+    </script>
+</body>
+</html>
