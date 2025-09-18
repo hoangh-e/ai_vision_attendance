@@ -367,12 +367,6 @@
                 displayMobileVideoFrame(data);
             });
 
-            // ⭐ KEY FIX: Missing event handler for desktop
-            socket.on('mobile_frame_received', function(data) {
-                console.log('📹 Received frame from mobile:', data);
-                displayVideoFrameOnDesktop(data);
-            });
-
             // 📱 Handle mobile client connections
             socket.on('mobile_client_connected', function(data) {
                 console.log('📱 Mobile client connected:', data);
@@ -515,50 +509,6 @@
             // Update frame count
             stats.totalFrames++;
             updateStatsDisplay();
-        }
-
-        // ⭐ NEW FUNCTION: Display video frame on desktop (KEY FIX)
-        function displayVideoFrameOnDesktop(data) {
-            const videoContainer = document.getElementById('mobileViewer');
-            if (!data.frame) {
-                console.warn('No frame data in displayVideoFrameOnDesktop');
-                return;
-            }
-            
-            // Create or update video display
-            let videoImg = videoContainer.querySelector('#mobileVideoStream');
-            if (!videoImg) {
-                videoContainer.innerHTML = `
-                    <div class="position-relative w-100 h-100">
-                        <img id="mobileVideoStream" src="${data.frame}" 
-                             style="width: 100%; height: auto; border-radius: 10px;"
-                             alt="Mobile Video Stream">
-                        <div class="position-absolute top-0 start-0 m-2">
-                            <span class="badge bg-success">📱 LIVE từ Mobile</span>
-                        </div>
-                        <div class="position-absolute bottom-0 end-0 m-2">
-                            <small class="badge bg-dark">
-                                🎯 ${data.detections ? data.detections.length : 0} faces
-                            </small>
-                        </div>
-                    </div>
-                `;
-                console.log('✅ Created new video display element');
-            } else {
-                videoImg.src = data.frame;
-                
-                // Update detection count
-                const detectionBadge = videoContainer.querySelector('.badge.bg-dark');
-                if (detectionBadge) {
-                    detectionBadge.innerHTML = `🎯 ${data.detections ? data.detections.length : 0} faces`;
-                }
-                console.log('✅ Updated existing video display');
-            }
-
-            // Update stats
-            if (data.detections && data.detections.length > 0) {
-                console.log(`👥 Desktop received ${data.detections.length} face detections`);
-            }
         }
 
         function updateDetectionUI() {

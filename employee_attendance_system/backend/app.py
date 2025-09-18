@@ -608,63 +608,6 @@ def handle_mobile_frame(data):
         logger.error(f"Error processing mobile frame: {e}")
         emit('error', {'message': f'Frame processing error: {str(e)}'})
 
-@socketio.on('video_frame')
-def handle_video_frame(data):
-    """Process video frame from mobile - KEY MISSING EVENT HANDLER"""
-    try:
-        client_id = request.sid
-        frame_data = data.get('frame')
-        
-        if not frame_data:
-            emit('detection_result', {'success': False, 'error': 'No frame data'})
-            return
-        
-        # Validate mobile client
-        if client_id not in app_state['mobile_clients']:
-            logger.warning(f"Unregistered mobile client sent frame: {client_id}")
-        
-        # Decode and process frame
-        frame = None
-        detections = []
-        
-        try:
-            frame = decode_base64_frame(frame_data)
-            if frame is not None and app_state['detection_active']:
-                processed_frame, detections = process_frame_with_detection(frame)
-                if processed_frame is not None:
-                    # Re-encode processed frame
-                    frame_data = encode_frame_to_base64(processed_frame)
-        except Exception as decode_error:
-            logger.error(f"Frame processing error: {decode_error}")
-        
-        # ⭐ KEY FIX: Broadcast to desktop monitors
-        socketio.emit('mobile_frame_received', {
-            'frame': frame_data,
-            'client_id': client_id,
-            'detections': detections,
-            'timestamp': datetime.now().isoformat(),
-            'detection_active': app_state['detection_active']
-        }, room='desktop_monitors')
-        
-        # Update stats
-        app_state['stats']['total_frames'] += 1
-        if detections:
-            app_state['stats']['total_detections'] += len(detections)
-        
-        # Send result back to mobile
-        emit('detection_result', {
-            'success': True,
-            'faces': detections,
-            'timestamp': datetime.now().isoformat(),
-            'frame_count': app_state['stats']['total_frames']
-        })
-        
-        logger.debug(f"Processed video_frame from {client_id}, broadcasting to desktop monitors")
-        
-    except Exception as e:
-        logger.error(f"Error in video_frame handler: {e}")
-        emit('detection_result', {'success': False, 'error': str(e)})
-
 @socketio.on('toggle_detection')
 def handle_toggle_detection(data):
     """Toggle face detection on/off"""
