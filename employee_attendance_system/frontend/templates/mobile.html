@@ -9,6 +9,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
+    <!-- ⭐ FIX: HTTPS requirement warning -->
+    <script>
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            alert('⚠️ Camera cần HTTPS. Vui lòng truy cập: https://' + location.host + location.pathname);
+        }
+    </script>
+    
     <style>
         * {
             margin: 0;

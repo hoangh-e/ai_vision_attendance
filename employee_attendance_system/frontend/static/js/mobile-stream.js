@@ -137,8 +137,13 @@ class MobileVideoStreamer {
     
     async setupCamera() {
         try {
-            console.log(' Setting up camera...');
-            this.showStatus(' Đang truy cập camera...', 'info');
+            console.log('🎥 Setting up camera...');
+            this.showStatus('🎥 Đang truy cập camera...', 'info');
+            
+            // ⭐ FIX: Kiểm tra HTTPS requirement
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                throw new Error('Camera requires HTTPS connection. Please use https://');
+            }
             
             // Stop existing stream if any
             if (this.stream) {
@@ -150,7 +155,7 @@ class MobileVideoStreamer {
                 throw new Error('Camera API không được hỗ trợ trên trình duyệt này');
             }
             
-            // Request camera with mobile-optimized constraints
+            // ⭐ FIX: Enhanced constraints with fallback
             const constraints = {
                 video: {
                     facingMode: 'user', // Front camera
@@ -161,14 +166,14 @@ class MobileVideoStreamer {
                 audio: false
             };
             
-            console.log(' Requesting camera with constraints:', constraints);
+            console.log('🎥 Requesting camera with constraints:', constraints);
             
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (firstError) {
-                console.warn(' First camera request failed, trying fallback...', firstError);
+                console.warn('⚠️ First camera request failed, trying fallback...', firstError);
                 
-                // Fallback with minimal constraints
+                // ⭐ FIX: Fallback with minimal constraints
                 const fallbackConstraints = {
                     video: true,
                     audio: false
@@ -177,59 +182,31 @@ class MobileVideoStreamer {
                 this.stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
             }
             
-            console.log(' Camera stream obtained');
+            console.log('✅ Camera stream obtained');
             
             // Attach stream to video element
             this.videoElement.srcObject = this.stream;
             
-            // Setup canvas size when video loads
+            // ⭐ FIX: Wait for metadata to load
             return new Promise((resolve, reject) => {
                 this.videoElement.addEventListener('loadedmetadata', () => {
-                    try {
-                        console.log(`Video metadata loaded: ${this.videoElement.videoWidth}x${this.videoElement.videoHeight}`);
-                        
-                        // Set canvas size
-                        this.canvas.width = this.videoElement.videoWidth || 640;
-                        this.canvas.height = this.videoElement.videoHeight || 480;
-                        
-                        console.log(`Canvas size set: ${this.canvas.width}x${this.canvas.height}`);
-                        
-                        this.showStatus(' Camera sẵn sàng!', 'success');
-                        resolve();
-                        
-                    } catch (error) {
-                        reject(error);
-                    }
+                    this.canvas.width = this.videoElement.videoWidth || 640;
+                    this.canvas.height = this.videoElement.videoHeight || 480;
+                    console.log('✅ Camera setup successful');
+                    this.showStatus('✅ Camera sẵn sàng!', 'success');
+                    resolve();
                 });
                 
-                this.videoElement.addEventListener('error', (error) => {
-                    console.error(' Video element error:', error);
-                    reject(new Error('Video playback error'));
-                });
+                this.videoElement.addEventListener('error', reject);
                 
-                // Auto-resolve after timeout
-                setTimeout(() => {
-                    if (this.videoElement.videoWidth > 0) {
-                        resolve();
-                    } else {
-                        reject(new Error('Video metadata load timeout'));
-                    }
-                }, 5000);
-                
-                // Start video playback
-                this.videoElement.play()
-                    .then(() => {
-                        console.log(' Video playback started');
-                    })
-                    .catch((playError) => {
-                        console.error(' Video play error:', playError);
-                        // Don't reject here, metadata event might still fire
-                    });
+                // Start playback
+                this.videoElement.play().catch(reject);
             });
             
         } catch (error) {
-            console.error(' Camera setup failed:', error);
+            console.error('❌ Camera setup failed:', error);
             
+            // ⭐ FIX: Better error messages
             let errorMessage = 'Không thể truy cập camera';
             
             if (error.name === 'NotAllowedError') {
@@ -240,9 +217,11 @@ class MobileVideoStreamer {
                 errorMessage = 'Camera không được hỗ trợ';
             } else if (error.name === 'NotReadableError') {
                 errorMessage = 'Camera đang được sử dụng bởi ứng dụng khác';
+            } else if (error.message.includes('HTTPS')) {
+                errorMessage = 'Cần HTTPS để truy cập camera. Vui lòng sử dụng https://';
             }
             
-            this.showStatus(' ' + errorMessage, 'error');
+            this.showStatus('❌ ' + errorMessage, 'error');
             throw new Error(errorMessage);
         }
     }
