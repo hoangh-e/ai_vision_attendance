@@ -1,0 +1,30 @@
+# Core Flask Framework
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+Werkzeug==2.3.7
+
+# Database ORM
+SQLAlchemy==2.0.21
+
+# Computer Vision & AI Libraries  
+opencv-python-headless==4.10.0.84
+deepface>=0.0.95
+tensorflow>=2.20.0
+numpy>=1.26.0
+keras>=3.11.0
+tf-keras>=2.20.0
+Pillow>=10.0.1
+
+# Real-time Communication
+python-socketio==5.9.0
+eventlet>=0.40.0
+
+# Additional dependencies for AI processing
+protobuf>=3.20.3
+gdown>=4.6.0
+tqdm>=4.65.0
+requests>=2.31.0
+matplotlib>=3.7.2
+pandas>=2.0.3
+pyOpenSSL
+

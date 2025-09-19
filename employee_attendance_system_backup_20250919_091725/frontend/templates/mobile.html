@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>📱 BHK Tech - Điểm Danh Mobile</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2196F3">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- ⭐ FIX: HTTPS requirement warning -->
+    <script>
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            alert('⚠️ Camera cần HTTPS. Vui lòng truy cập: https://' + location.host + location.pathname);
+        }
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 100vw;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .connection-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 10px 0;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+            animation: pulse-green 2s infinite;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(46, 204, 113, 0.95);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            backdrop-filter: blur(15px);
+            z-index: 3000;
+            transition: transform 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .notification-toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .notification-toast.error {
+            background: rgba(231, 76, 60, 0.95);
+        }
+
+        .notification-toast.warning {
+            background: rgba(243, 156, 18, 0.95);
+        }
+
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: -350px;
+            width: 320px;
+            height: 100vh;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            transition: right 0.3s ease;
+            z-index: 2000;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-panel.open {
+            right: 0;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-group {
+            margin-bottom: 25px;
+        }
+
+        .settings-group h4 {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .setting-label {
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #3498db;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .stats-panel {
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 250px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 900;
+            display: none;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .stats-label {
+            color: #bbb;
+        }
+
+        .stats-value {
+            font-weight: bold;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            background: #000;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+            min-height: 300px;
+        }
+
+        #frameCanvas {
+            display: none; /* Hidden canvas for frame capture */
+        }
+
+        #detectionOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .bounding-box {
+            position: absolute;
+            border: 2px solid;
+            border-radius: 4px;
+            min-width: 40px;
+            min-height: 40px;
+        }
+
+        .bounding-box.known-face {
+            border-color: #2ecc71;
+            background: rgba(46, 204, 113, 0.1);
+        }
+
+        .bounding-box.unknown-face {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+
+        .face-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+            color: white;
+            box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .stats-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .detection-info {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .detection-result {
+            color: #22c55e;
+        }
+
+        .no-detection {
+            color: #fbbf24;
+        }
+
+        .server-stats {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+
+        .error-message {
+            display: none;
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 2px solid #ef4444;
+            border-radius: 10px;
+            color: #fecaca;
+        }
+
+        .quality-controls {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quality-slider {
+            width: 150px;
+            height: 5px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.3);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .quality-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FFD700;
+            cursor: pointer;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 5px;
+            }
+            
+            .btn {
+                min-width: 100px;
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) and (max-height: 500px) {
+            #videoElement {
+                max-height: 40vh;
+            }
+            
+            .controls {
+                margin: 10px 0;
+            }
+            
+            .stats-section {
+                margin: 10px 0;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📱 BHK Tech - Điểm Danh AI</h1>
+            <div class="header-controls">
+                <div id="connectionStatus" class="connection-status disconnected">
+                    🔴 Đang kết nối...
+                </div>
+                <button id="settingsBtn" class="btn btn-secondary" style="padding: 8px 12px; min-width: auto;">
+                    ⚙️
+                </button>
+            </div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="notificationToast" class="notification-toast">
+            <span id="notificationMessage"></span>
+        </div>
+
+        <!-- Error Message (Hidden by default) -->
+        <div id="errorMessage" class="error-message">
+            Lỗi sẽ hiển thị ở đây
+        </div>
+
+        <!-- Video Stream -->
+        <div class="video-container">
+            <video id="videoElement" autoplay muted playsinline></video>
+            <canvas id="frameCanvas" style="display: none;"></canvas>
+            <div id="detectionOverlay" class="detection-overlay"></div>
+        </div>
+
+        <!-- Stream Controls -->
+        <div class="controls">
+            <button id="startStreamBtn" class="btn btn-primary">
+                🎥 Bắt đầu Stream
+            </button>
+            <button id="stopStreamBtn" class="btn btn-danger" style="display: none;">
+                ⏹️ Dừng Stream
+            </button>
+            <button id="switchCameraBtn" class="btn btn-secondary">
+                🔄 Đổi Camera
+            </button>
+            <button id="toggleDetectionBtn" class="btn btn-secondary">
+                🔍 Toggle Detection
+            </button>
+        </div>
+
+        <!-- Quality Controls -->
+        <div class="quality-controls">
+            <span>Chất lượng:</span>
+            <input type="range" id="qualitySlider" class="quality-slider" 
+                   min="0.3" max="1.0" step="0.1" value="0.8">
+            <span id="qualityValue">80%</span>
+        </div>
+
+        <!-- Detection Info -->
+        <div id="detectionInfo" class="detection-info">
+            <div class="no-detection">Chưa phát hiện khuôn mặt</div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-section">
+            <h3 style="margin-bottom: 15px;">📊 Thống Kê</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div id="fpsDisplay" class="stat-value">0</div>
+                    <div class="stat-label">FPS</div>
+                </div>
+                <div class="stat-item">
+                    <div id="framesCount" class="stat-value">0</div>
+                    <div class="stat-label">Frames Sent</div>
+                </div>
+                <div class="stat-item">
+                    <div id="detectionCount" class="stat-value">0</div>
+                    <div class="stat-label">Detections</div>
+                </div>
+                <div class="stat-item">
+                    <div id="latency" class="stat-value">0ms</div>
+                    <div class="stat-label">Latency</div>
+                </div>
+            </div>
+            
+            <!-- Server Stats -->
+            <div id="serverStats" class="server-stats">
+                📊 Server stats loading...
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="stats-section">
+            <h3 style="margin-bottom: 10px;">💡 Hướng Dẫn</h3>
+            <div style="text-align: left; font-size: 14px; opacity: 0.9;">
+                <p>• Nhấn "Bắt đầu Stream" để bắt đầu streaming video</p>
+                <p>• Sử dụng "Đổi Camera" để chuyển giữa camera trước/sau</p>
+                <p>• Điều chỉnh chất lượng để tối ưu hiệu suất</p>
+                <p>• Hệ thống sẽ tự động phát hiện khuôn mặt</p>
+                <p>• Đảm bảo kết nối mạng ổn định</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel">
+        <div class="settings-header">
+            <h3 style="color: white; margin: 0;">⚙️ Cài Đặt</h3>
+            <button id="closeSettingsBtn" class="btn btn-secondary" style="padding: 8px 12px; min-width: auto;">
+                ✕
+            </button>
+        </div>
+
+        <div class="settings-group">
+            <h4>📹 Video Settings</h4>
+            <div class="setting-item">
+                <span class="setting-label">Auto Face Detection</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoDetectionToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">High Quality Mode</span>
+                <label class="switch">
+                    <input type="checkbox" id="highQualityToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Full Screen Mode</span>
+                <label class="switch">
+                    <input type="checkbox" id="fullScreenToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h4>🔧 Performance</h4>
+            <div class="setting-item">
+                <span class="setting-label">Auto Optimization</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoOptimizeToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Stats Display</span>
+                <label class="switch">
+                    <input type="checkbox" id="statsToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h4>🔊 Notifications</h4>
+            <div class="setting-item">
+                <span class="setting-label">Sound Alerts</span>
+                <label class="switch">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Vibration</span>
+                <label class="switch">
+                    <input type="checkbox" id="vibrationToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h4>ℹ️ Information</h4>
+            <div style="color: #ccc; font-size: 12px; line-height: 1.4;">
+                <p><strong>Version:</strong> 2.0.0</p>
+                <p><strong>Build:</strong> 2024.01.15</p>
+                <p><strong>Platform:</strong> Mobile PWA</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Panel (Initially Hidden) -->
+    <div id="statsPanel" class="stats-panel">
+        <div class="stats-item">
+            <span class="stats-label">Connection</span>
+            <span class="stats-value" id="connectionStats">Good</span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">Bandwidth</span>
+            <span class="stats-value" id="bandwidthStats">Auto</span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">Resolution</span>
+            <span class="stats-value" id="resolutionStats">HD</span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">Frame Rate</span>
+            <span class="stats-value" id="frameRateStats">30 FPS</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/mobile-stream.js') }}"></script>
+    
+    <script>
+        // Enhanced mobile functionality with settings and notifications
+        class MobileEnhancer {
+            constructor() {
+                this.settings = {
+                    autoDetection: true,
+                    highQuality: false,
+                    fullScreen: false,
+                    autoOptimize: true,
+                    statsDisplay: true,
+                    soundAlerts: true,
+                    vibration: true
+                };
+                this.init();
+            }
+
+            init() {
+                this.setupSettingsPanel();
+                this.setupNotifications();
+                this.loadSettings();
+                this.bindEvents();
+            }
+
+            setupSettingsPanel() {
+                const settingsBtn = document.getElementById('settingsBtn');
+                const settingsPanel = document.getElementById('settingsPanel');
+                const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+
+                settingsBtn?.addEventListener('click', () => {
+                    settingsPanel?.classList.add('open');
+                });
+
+                closeSettingsBtn?.addEventListener('click', () => {
+                    settingsPanel?.classList.remove('open');
+                });
+
+                // Close on outside click
+                document.addEventListener('click', (e) => {
+                    if (!settingsPanel?.contains(e.target) && !settingsBtn?.contains(e.target)) {
+                        settingsPanel?.classList.remove('open');
+                    }
+                });
+            }
+
+            setupNotifications() {
+                window.showNotification = (message, type = 'success') => {
+                    const toast = document.getElementById('notificationToast');
+                    const messageEl = document.getElementById('notificationMessage');
+                    
+                    if (toast && messageEl) {
+                        messageEl.textContent = message;
+                        toast.className = `notification-toast ${type}`;
+                        toast.classList.add('show');
+                        
+                        setTimeout(() => {
+                            toast.classList.remove('show');
+                        }, 3000);
+
+                        // Vibration feedback if enabled
+                        if (this.settings.vibration && 'vibrate' in navigator) {
+                            navigator.vibrate(100);
+                        }
+                    }
+                };
+            }
+
+            loadSettings() {
+                const savedSettings = localStorage.getItem('mobileSettings');
+                if (savedSettings) {
+                    this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+                }
+                this.applySettings();
+            }
+
+            saveSettings() {
+                localStorage.setItem('mobileSettings', JSON.stringify(this.settings));
+            }
+
+            applySettings() {
+                // Apply settings to UI
+                Object.keys(this.settings).forEach(key => {
+                    const toggle = document.getElementById(`${key}Toggle`);
+                    if (toggle) {
+                        toggle.checked = this.settings[key];
+                    }
+                });
+
+                // Apply visual settings
+                if (this.settings.statsDisplay) {
+                    document.querySelector('.stats-section')?.style.setProperty('display', 'block');
+                } else {
+                    document.querySelector('.stats-section')?.style.setProperty('display', 'none');
+                }
+            }
+
+            bindEvents() {
+                // Settings toggles
+                Object.keys(this.settings).forEach(key => {
+                    const toggle = document.getElementById(`${key}Toggle`);
+                    toggle?.addEventListener('change', (e) => {
+                        this.settings[key] = e.target.checked;
+                        this.saveSettings();
+                        this.handleSettingChange(key, e.target.checked);
+                    });
+                });
+            }
+
+            handleSettingChange(setting, value) {
+                switch (setting) {
+                    case 'fullScreen':
+                        if (value) {
+                            document.documentElement.requestFullscreen?.();
+                        } else {
+                            document.exitFullscreen?.();
+                        }
+                        break;
+                    
+                    case 'statsDisplay':
+                        const statsSection = document.querySelector('.stats-section');
+                        if (statsSection) {
+                            statsSection.style.display = value ? 'block' : 'none';
+                        }
+                        break;
+
+                    case 'highQuality':
+                        if (window.mobileStreamer) {
+                            window.mobileStreamer.quality = value ? 1.0 : 0.7;
+                            showNotification(`Quality ${value ? 'increased' : 'optimized'} for performance`);
+                        }
+                        break;
+
+                    case 'autoDetection':
+                        if (window.mobileStreamer) {
+                            window.mobileStreamer.autoDetection = value;
+                            showNotification(`Face detection ${value ? 'enabled' : 'disabled'}`);
+                        }
+                        break;
+                }
+            }
+        }
+
+        // Initialize enhanced mobile functionality
+        const mobileEnhancer = new MobileEnhancer();
+
+        // Additional mobile-specific functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            // Quality slider functionality
+            const qualitySlider = document.getElementById('qualitySlider');
+            const qualityValue = document.getElementById('qualityValue');
+            
+            if (qualitySlider && qualityValue) {
+                qualitySlider.addEventListener('input', (e) => {
+                    const value = Math.round(e.target.value * 100);
+                    qualityValue.textContent = `${value}%`;
+                    
+                    // Update streamer quality if available
+                    if (window.mobileStreamer) {
+                        window.mobileStreamer.quality = parseFloat(e.target.value);
+                    }
+                });
+            }
+            
+            // Prevent screen sleep during streaming
+            let wakeLock = null;
+            const requestWakeLock = async () => {
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        console.log('Screen wake lock activated');
+                    } catch (err) {
+                        console.log('Wake lock request failed:', err);
+                    }
+                }
+            };
+            
+            // Auto-request wake lock when streaming starts
+            const originalStart = document.getElementById('startStreamBtn');
+            if (originalStart) {
+                originalStart.addEventListener('click', requestWakeLock);
+            }
+            
+            // Handle visibility change
+            document.addEventListener('visibilitychange', () => {
+                if (wakeLock !== null && document.visibilityState === 'visible') {
+                    requestWakeLock();
+                }
+            });
+            
+            // Handle orientation changes
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    // Resize video container after orientation change
+                    if (window.mobileStreamer && window.mobileStreamer.videoElement) {
+                        window.mobileStreamer.videoElement.style.height = 'auto';
+                    }
+                }, 100);
+            });
+            
+            // Periodic latency measurement
+            let lastPingTime = 0;
+            const measureLatency = () => {
+                if (window.mobileStreamer && window.mobileStreamer.socket && window.mobileStreamer.socket.connected) {
+                    lastPingTime = Date.now();
+                    window.mobileStreamer.socket.emit('ping', { timestamp: lastPingTime });
+                }
+            };
+            
+            // Setup pong handler for latency
+            if (window.mobileStreamer && window.mobileStreamer.socket) {
+                window.mobileStreamer.socket.on('pong', (data) => {
+                    const latency = Date.now() - data.timestamp;
+                    const latencyElement = document.getElementById('latency');
+                    if (latencyElement) {
+                        latencyElement.textContent = `${latency}ms`;
+                    }
+                });
+            }
+            
+            // Measure latency every 5 seconds
+            setInterval(measureLatency, 5000);
+        });
+    </script>
+</body>
+</html>
